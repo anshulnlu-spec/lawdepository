@@ -1,1 +1,0 @@
-# Scraper for Sansad portal
