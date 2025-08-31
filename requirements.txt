@@ -5,6 +5,3 @@ PyPDF2
 pytesseract
 pdf2image
 Pillow
-beautifulsoup4
-lxml
-schedule
