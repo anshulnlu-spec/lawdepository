@@ -8,9 +8,9 @@ async function loadData() {
     for (let cat in categories) {
       if (categories[cat].length > 0) {
         content += `<details><summary>${cat}</summary>`;
-        content += "<table><tr><th>Title</th><th>PDF Link</th></tr>";
+        content += "<table><tr><th>Title</th><th>Date</th><th>PDF Link</th></tr>";
         categories[cat].forEach(item => {
-          content += `<tr><td>${item.title}</td><td><a href='${item.link}' target='_blank' onclick='registerClick("${item.link}")'>Download PDF</a></td></tr>`;
+          content += `<tr><td>${item.title}</td><td>${item.date || ""}</td><td><a href='${item.link}' target='_blank' onclick='registerClick("${item.link}")'>Download PDF</a></td></tr>`;
         });
         content += "</table></details>";
       }
