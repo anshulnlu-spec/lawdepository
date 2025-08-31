@@ -56,7 +56,7 @@ def extract_title_date_from_pdf(url, law_name="ibc"):
         {text[:4000]}
         """
 
-        model = genai.GenerativeModel("gemini-pro")
+        model = genai.GenerativeModel("models/gemini-1.5-pro-latest")
         response = model.generate_content(prompt)
 
         match = re.search(r"\{.*\}", response.text, re.S)
