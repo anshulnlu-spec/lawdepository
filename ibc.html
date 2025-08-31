@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Law Depository - Insolvency and Bankruptcy Code, 2016</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    async function loadData() {
+      const response = await fetch("https://lawdepository-backend.onrender.com/law/ibc");
+      const data = await response.json();
+      const categories = data.categories;
+      let content = "";
+      for (let cat in categories) {
+        content += `<h3>${cat}</h3>`;
+        content += "<table border='1' cellpadding='8'><tr><th>Title</th><th>PDF Link</th></tr>";
+        categories[cat].forEach(item => {
+          content += `<tr><td>${item.title}</td><td><a href='${item.link}' target='_blank'>Download PDF</a></td></tr>`;
+        });
+        content += "</table><br/>";
+      }
+      document.getElementById("content").innerHTML = content;
+    }
+    window.onload = loadData;
+  </script>
+</head>
+<body>
+  <header>
+    <h1>⚖️ Law Depository</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="ibc.html">IBC 2016</a>
+      <a href="competition.html">Competition Act 2002</a>
+    </nav>
+  </header>
+  <main>
+    <h2>Insolvency and Bankruptcy Code, 2016</h2>
+    <div id="content">Loading...</div>
+  </main>
+  <footer>
+    <p>© 2025 LawDepository | Data from eGazette & Govt Portals</p>
+  </footer>
+</body>
+</html>

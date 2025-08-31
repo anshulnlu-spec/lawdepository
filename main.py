@@ -1,7 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import requests
-from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -18,31 +16,60 @@ app.add_middleware(
 def home():
     return {"message": "Law Depository Backend is running 🚀"}
 
-@app.get("/laws")
-def get_laws():
-    try:
-        url = "https://egazette.nic.in/Welcome.aspx"
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
+@app.get("/law/ibc")
+def get_ibc():
+    return {
+        "law": "Insolvency and Bankruptcy Code, 2016",
+        "categories": {
+            "Act": [
+                {"title": "IBC, 2016 (Bare Act)", "link": "https://ibbi.gov.in/uploads/legalframwork/IBC_2016.pdf"}
+            ],
+            "Rules": [
+                {"title": "Insolvency and Bankruptcy (Application to Adjudicating Authority) Rules, 2016", "link": "https://ibbi.gov.in/uploads/legalframwork/IBBI_Adjudication_Rules.pdf"}
+            ],
+            "Regulations": [
+                {"title": "IBBI (CIRP) Regulations, 2016", "link": "https://ibbi.gov.in/uploads/legalframwork/2016-05-05_cirp_regulations.pdf"}
+            ],
+            "Notifications": [
+                {"title": "MCA Notification – Sections of IBC Enforcement", "link": "https://www.egazette.nic.in/WriteReadData/2016/ibc_notification.pdf"}
+            ],
+            "Amendments": [
+                {"title": "IBC (Amendment) Ordinance, 2021", "link": "https://ibbi.gov.in/uploads/legalframwork/ibc_amendment_ord2021.pdf"}
+            ],
+            "Reports": [
+                {"title": "BLRC Committee Report on Bankruptcy Law Reforms", "link": "https://ibbi.gov.in/uploads/resources/BLRCReportVol1_04112015.pdf"}
+            ],
+            "Bills": [
+                {"title": "IBC (Amendment) Bill, 2021", "link": "https://prsindia.org/files/bills_acts/bills_parliament/IBC_Amendment_Bill_2021.pdf"}
+            ]
+        }
+    }
 
-        laws = []
-        for a in soup.find_all("a", href=True)[:10]:
-            title = a.text.strip()
-            if not title:
-                continue
-            link = "https://egazette.nic.in/" + a["href"]
-            laws.append({"title": title, "link": link})
-
-        if not laws:  # if scraping failed
-            raise Exception("No data scraped")
-
-        return {"laws": laws}
-
-    except Exception as e:
-        # ✅ fallback demo data so site never breaks
-        demo_data = [
-            {"title": "Insolvency and Bankruptcy Code, 2016", "link": "https://ibbi.gov.in"},
-            {"title": "Companies (Amendment) Act, 2020", "link": "https://mca.gov.in"},
-            {"title": "Competition Act, 2002", "link": "https://cci.gov.in"}
-        ]
-        return {"laws": demo_data, "note": "⚠️ Showing demo data because scraping failed"}
+@app.get("/law/competition")
+def get_competition():
+    return {
+        "law": "Competition Act, 2002",
+        "categories": {
+            "Act": [
+                {"title": "Competition Act, 2002 (Bare Act)", "link": "https://www.cci.gov.in/sites/default/files/cci_pdf/competitionact2012.pdf"}
+            ],
+            "Rules": [
+                {"title": "Competition Commission of India (Procedure) Rules, 2009", "link": "https://www.cci.gov.in/sites/default/files/cci_pdf/competitionrules2009.pdf"}
+            ],
+            "Regulations": [
+                {"title": "CCI (General) Regulations, 2009", "link": "https://www.cci.gov.in/sites/default/files/cci_pdf/generalregulations2009.pdf"}
+            ],
+            "Notifications": [
+                {"title": "CCI Notification on Merger Guidelines", "link": "https://www.cci.gov.in/sites/default/files/whats_newdocument/Notification.pdf"}
+            ],
+            "Amendments": [
+                {"title": "Competition (Amendment) Act, 2023", "link": "https://www.egazette.nic.in/WriteReadData/2023/comp_amendment.pdf"}
+            ],
+            "Reports": [
+                {"title": "High Level Committee Report on Competition Policy", "link": "https://www.cci.gov.in/sites/default/files/whats_newdocument/Report.pdf"}
+            ],
+            "Bills": [
+                {"title": "Competition (Amendment) Bill, 2022", "link": "https://prsindia.org/files/bills_acts/bills_parliament/Competition%20Amendment%20Bill%202022.pdf"}
+            ]
+        }
+    }
