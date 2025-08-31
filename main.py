@@ -1,6 +1,4 @@
 from fastapi import FastAPI
-import requests
-from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -10,16 +8,10 @@ def home():
 
 @app.get("/laws")
 def get_laws():
-    url = "https://egazette.nic.in/Welcome.aspx"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # For demo: just grab all <a> links on homepage
-    links = []
-    for a in soup.find_all("a", href=True)[:10]:  # only 10 links for now
-        links.append({
-            "title": a.text.strip(),
-            "link": "https://egazette.nic.in/" + a['href']
-        })
-
-    return {"laws": links}
+    # Temporary demo data until scraper is fully connected
+    demo_data = [
+        {"title": "Insolvency and Bankruptcy Code, 2016", "link": "https://ibbi.gov.in"},
+        {"title": "Companies (Amendment) Act, 2020", "link": "https://www.mca.gov.in"},
+        {"title": "Competition Act, 2002", "link": "https://cci.gov.in"}
+    ]
+    return {"laws": demo_data}
