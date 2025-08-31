@@ -3,26 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Law Depository - Insolvency and Bankruptcy Code, 2016</title>
+  <title>Law Depository - IBC</title>
   <link rel="stylesheet" href="style.css">
-  <script>
-    async function loadData() {
-      const response = await fetch("https://lawdepository-backend.onrender.com/law/ibc");
-      const data = await response.json();
-      const categories = data.categories;
-      let content = "";
-      for (let cat in categories) {
-        content += `<h3>${cat}</h3>`;
-        content += "<table><tr><th>Title</th><th>PDF Link</th></tr>";
-        categories[cat].forEach(item => {
-          content += `<tr><td>${item.title}</td><td><a href='${item.link}' target='_blank'>Download PDF</a></td></tr>`;
-        });
-        content += "</table><br/>";
-      }
-      document.getElementById("content").innerHTML = content;
-    }
-    window.onload = loadData;
-  </script>
+  <script src="script.js" defer></script>
 </head>
 <body>
   <header>
@@ -37,7 +20,7 @@
     <div id="content">Loading...</div>
   </main>
   <footer>
-    <p>© 2025 LawDepository | Data from eGazette, India Code, Lok Sabha & IBBI</p>
+    <p>© 2025 LawDepository | Data from eGazette, Lok Sabha, Rajya Sabha, IBBI</p>
   </footer>
 </body>
 </html>
