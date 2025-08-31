@@ -1,6 +1,6 @@
-
 async function loadData() {
-  const resp = await fetch("https://anshulnlu-spec.onrender.com/law/ibc");
+  // ✅ Explicitly call Render backend
+  const resp = await fetch("https://lawdepository-backend.onrender.com/law/ibc");
   const data = await resp.json();
   let html = "";
   for (let cat in data.categories) {
