@@ -5,9 +5,9 @@ from utils import extract_title_date_from_pdf, categorise_entry
 
 app = FastAPI()
 
-# Enable CORS for frontend
+# ✅ Correct use of CORSMiddleware
 app.add_middleware(
-    CORSMORS = CORSMiddleware,
+    CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
