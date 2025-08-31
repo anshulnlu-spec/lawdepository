@@ -5,7 +5,6 @@ from utils import extract_title_date_from_pdf
 
 app = FastAPI()
 
-# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,26 +15,24 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Law Depository Backend with GPT 🚀"}
+    return {"message": "Law Depository Backend (Gemini) is running 🚀"}
 
 @app.get("/law/{law_name}")
 def get_law(law_name: str):
-    json_file = f"{law_name}.json"
-    if not os.path.exists(json_file):
-        return {"error": f"{law_name}.json not found"}
+    file = f"{law_name}.json"
+    if not os.path.exists(file):
+        return {"error": "Law not found"}
 
-    with open(json_file, "r") as f:
+    with open(file, "r") as f:
         data = json.load(f)
 
     results = []
-    for link in data.get("pdfs", []):
-        title, date, category = extract_title_date_from_pdf(link, law_name)
+    for url in data.get("pdfs", []):
+        title, date, category = extract_title_date_from_pdf(url, law_name)
         results.append({
             "title": title,
             "date": date,
-            "link": link,
-            "category": category or "Other",
-            "source": law_name.upper()
+            "category": category,
+            "url": url
         })
-
-    return {"law": law_name.upper(), "documents": results}
+    return {"law": law_name, "docs": results}

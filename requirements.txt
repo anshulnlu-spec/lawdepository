@@ -4,4 +4,4 @@ requests
 PyPDF2
 pdf2image
 pytesseract
-openai
+google-generativeai
