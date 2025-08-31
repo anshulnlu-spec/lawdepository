@@ -13,7 +13,7 @@
       let content = "";
       for (let cat in categories) {
         content += `<h3>${cat}</h3>`;
-        content += "<table border='1' cellpadding='8'><tr><th>Title</th><th>PDF Link</th></tr>";
+        content += "<table><tr><th>Title</th><th>PDF Link</th></tr>";
         categories[cat].forEach(item => {
           content += `<tr><td>${item.title}</td><td><a href='${item.link}' target='_blank'>Download PDF</a></td></tr>`;
         });
@@ -30,7 +30,6 @@
     <nav>
       <a href="index.html">Home</a>
       <a href="ibc.html">IBC 2016</a>
-      <a href="competition.html">Competition Act 2002</a>
     </nav>
   </header>
   <main>
@@ -38,7 +37,7 @@
     <div id="content">Loading...</div>
   </main>
   <footer>
-    <p>© 2025 LawDepository | Data from eGazette & Govt Portals</p>
+    <p>© 2025 LawDepository | Data from eGazette, India Code, Lok Sabha & IBBI</p>
   </footer>
 </body>
 </html>
