@@ -5,10 +5,9 @@ from utils import extract_title_date_from_pdf, categorise_entry
 
 app = FastAPI()
 
-# ✅ Correct use of CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*", "https://anshulnlu-spec.github.io"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +40,6 @@ def get_law(law_name: str):
         entry["category"] = categorise_entry(title)
         results.append(entry)
 
-    # Group by categories
     categories = {}
     for e in results:
         cat = e.get("category", "Other")
