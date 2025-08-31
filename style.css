@@ -1,0 +1,120 @@
+/* General Reset */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+  color: #333;
+}
+
+/* Header */
+header {
+  background: #2c3e50;
+  color: white;
+  padding: 15px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+}
+
+nav a {
+  margin: 0 15px;
+  text-decoration: none;
+  color: white;
+  font-weight: bold;
+}
+
+nav a:hover, nav a.active {
+  text-decoration: underline;
+}
+
+/* Hero Section */
+.hero {
+  text-align: center;
+  padding: 50px 20px;
+  background: linear-gradient(to right, #3498db, #2ecc71);
+  color: white;
+}
+
+.hero h2 {
+  font-size: 28px;
+}
+
+.btn {
+  background: white;
+  color: #2c3e50;
+  padding: 10px 20px;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.btn:hover {
+  background: #ddd;
+}
+
+/* Features */
+.features {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.cards {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 250px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+/* Content Pages */
+.content {
+  padding: 30px;
+  max-width: 800px;
+  margin: auto;
+}
+
+/* Contact Form */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input, textarea, button {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+button {
+  background: #3498db;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2980b9;
+}
+
+/* Footer */
+footer {
+  background: #2c3e50;
+  color: white;
+  text-align: center;
+  padding: 15px;
+  margin-top: 30px;
+}
