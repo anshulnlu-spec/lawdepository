@@ -1,22 +1,35 @@
-async function loadData() {
+async function loadLaw(law) {
   try {
-    const resp = await fetch("https://lawdepository-backend.onrender.com/law/ibc");
-    if (!resp.ok) {
-      throw new Error("HTTP error " + resp.status);
-    }
-    const data = await resp.json();
-    let html = "";
-    for (let cat in data.categories) {
-      html += `<h2>${cat}</h2><ul>`;
-      data.categories[cat].forEach(doc => {
-        html += `<li>${doc.title} (${doc.date || ""}) - <a href="${doc.link}" target="_blank">PDF</a></li>`;
+    const res = await fetch(`https://lawdepository-backend.onrender.com/law/${law}`);
+    const data = await res.json();
+    const container = document.getElementById("content");
+    container.innerHTML = "";
+
+    const grouped = {};
+    data.documents.forEach(doc => {
+      if (!grouped[doc.category]) grouped[doc.category] = [];
+      grouped[doc.category].push(doc);
+    });
+
+    for (let cat in grouped) {
+      const section = document.createElement("div");
+      section.innerHTML = `<div class='category'>${cat}</div>`;
+      grouped[cat].forEach(doc => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `<b>${doc.title}</b><br>Date: ${doc.date || "N/A"}<br><a href='${doc.link}' target='_blank'>Open PDF</a>`;
+        section.appendChild(card);
       });
-      html += "</ul>";
+      container.appendChild(section);
     }
-    document.getElementById("content").innerHTML = html;
   } catch (err) {
     document.getElementById("content").innerHTML = "⚠️ Error loading data: " + err;
-    console.error(err);
   }
 }
-window.onload = loadData;
+
+document.getElementById("searchBox").addEventListener("input", function() {
+  const query = this.value.toLowerCase();
+  document.querySelectorAll(".card").forEach(card => {
+    card.style.display = card.innerText.toLowerCase().includes(query) ? "" : "none";
+  });
+});

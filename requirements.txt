@@ -2,6 +2,6 @@ fastapi
 uvicorn
 requests
 PyPDF2
-pytesseract
 pdf2image
-Pillow
+pytesseract
+openai

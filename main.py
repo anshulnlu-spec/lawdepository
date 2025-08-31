@@ -1,48 +1,41 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import json, os
-from utils import extract_title_date_from_pdf, categorise_entry
+from utils import extract_title_date_from_pdf
 
 app = FastAPI()
 
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", "https://anshulnlu-spec.github.io"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-BASE_DIR = os.path.dirname(__file__)
-
 @app.get("/")
-def home():
-    return {"message": "Law Depository Registry Backend is running 🚀"}
+def root():
+    return {"message": "Law Depository Backend with GPT 🚀"}
 
 @app.get("/law/{law_name}")
 def get_law(law_name: str):
-    json_file = os.path.join(BASE_DIR, f"{law_name}.json")
+    json_file = f"{law_name}.json"
     if not os.path.exists(json_file):
-        return {"error": "Law not found"}
+        return {"error": f"{law_name}.json not found"}
 
     with open(json_file, "r") as f:
         data = json.load(f)
 
     results = []
     for link in data.get("pdfs", []):
-        title, date = extract_title_date_from_pdf(link)
-        entry = {
+        title, date, category = extract_title_date_from_pdf(link, law_name)
+        results.append({
             "title": title,
             "date": date,
             "link": link,
+            "category": category or "Other",
             "source": law_name.upper()
-        }
-        entry["category"] = categorise_entry(title)
-        results.append(entry)
+        })
 
-    categories = {}
-    for e in results:
-        cat = e.get("category", "Other")
-        categories.setdefault(cat, []).append(e)
-
-    return {"law": law_name.upper(), "categories": categories}
+    return {"law": law_name.upper(), "documents": results}
