@@ -1,22 +1,10 @@
 services:
-  # The live web application that users visit
   - type: web
     name: global-insolvency-depository
     env: python
-    plan: starter 
+    plan: free # Specifies the free instance type
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
-      - fromGroup: gemini-api
-
-  # The scheduled job that runs the AI researcher automatically
-  - type: cron
-    name: ai-researcher
-    env: python
-    plan: starter
-    schedule: "0 4 * * *" # Runs every day at 4:00 AM UTC
-    buildCommand: pip install -r requirements.txt
-    startCommand: python tasks.py
-    envVars:
-      - fromGroup: gemini-api
+      - fromGroup: gemini-api # You still need to set this on Render
