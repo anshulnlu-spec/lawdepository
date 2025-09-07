@@ -20,7 +20,7 @@ async function fetchDocuments() {
         
         const jurisdictions = Object.keys(data);
         if (jurisdictions.every(j => Object.keys(data[j]).length === 0)) {
-            container.innerHTML = '<p>No documents currently in the repository. The AI researcher runs daily to find new content.</p>';
+            container.innerHTML = '<p>No documents currently in the repository. The curator runs the AI researcher periodically to find new content.</p>';
             return;
         }
 
