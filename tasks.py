@@ -5,11 +5,11 @@ from dotenv import load_dotenv
 import database
 import analysis
 
-# Load environment variables
+# Load environment variables from your local .env file
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment.")
+    raise ValueError("GEMINI_API_KEY not found. Create a .env file and add your key.")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Use a model that supports tool use (Google Search)
@@ -39,7 +39,7 @@ def discover_new_document_links():
         return []
 
 def run_update_job():
-    """The main task for the Cron Job."""
+    """The main local task to update the database."""
     print("Starting the AI document discovery and update job...")
     database.init_db()
     
@@ -74,7 +74,8 @@ def run_update_job():
         except Exception as e:
             print(f"  -> An error occurred processing {link['url']}: {e}")
             
-    print("AI document discovery job completed successfully.")
+    print("\n✅ Database update complete! Your 'law_depository.db' file is now up to date.")
+    print("➡️ Next step: Upload the 'law_depository.db' file to your GitHub repository.")
 
 if __name__ == "__main__":
     run_update_job()
