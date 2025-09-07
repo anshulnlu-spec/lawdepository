@@ -9,11 +9,11 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    # In Render, this error won't stop the app from starting,
-    # but it's crucial for the functions to have the key.
-    print("WARNING: GEMINI_API_KEY not found in environment.")
-
-genai.configure(api_key=GEMINI_API_KEY)
+    # This message will show in logs if the key is missing in Render's environment
+    print("WARNING: GEMINI_API_KEY not found in environment. The API calls will fail.")
+else:
+    # Configure the API key only if it exists
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # Use a model that supports multimodal inputs
 model = genai.GenerativeModel('gemini-1.5-flash')
@@ -36,7 +36,9 @@ def extract_details_from_pdf(pdf_url, law_name):
     """
     Extracts title, date, and category from a PDF URL using Gemini, with caching.
     """
-    if not genai.api_key:
+    # The incorrect check 'if not genai.api_key:' has been removed from here.
+
+    if not GEMINI_API_KEY:
         return "API key not configured", "N/A", "N/A"
 
     cache = get_cache(law_name)
