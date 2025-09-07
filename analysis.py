@@ -23,7 +23,6 @@ def validate_link(url):
         response = requests.head(url, timeout=15, headers=headers, allow_redirects=True)
         if response.status_code == 200:
             content_type = response.headers.get('content-type', '').lower()
-            # Check if it is a document type we can process
             if 'pdf' in content_type or 'html' in content_type or 'text' in content_type:
                 print(f"  -> Link is valid. Content-Type: {content_type}")
                 return True, content_type
@@ -54,7 +53,7 @@ def analyze_document_content(doc_url, jurisdiction, content_type):
         
         if 'pdf' in content_type:
             content_part = {"mime_type": "application/pdf", "data": response.content}
-        else: # Treat HTML and text as plain text
+        else:
             content_part = response.text
 
         api_response = analysis_model.generate_content([prompt, content_part])
