@@ -1,50 +1,42 @@
-# This file defines the automated build and deployment process on Google Cloud.
 steps:
-  # 1. Build the Docker container image.
+  # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
+      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
       - '.'
 
-  # 2. Push the container image to Google Artifact Registry.
+  # 2. Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
+      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
 
-  # 3. Deploy the new image to Cloud Run.
+  # 3. Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
+    entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'legal-docs-service' # This is the name of your web service.
-      - '--image'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
-      - '--region'
-      - '${_REGION}'
-      - '--platform'
-      - 'managed'
+      - 'legal-docs-service'
+      - '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
       - '--allow-unauthenticated'
-      # We are now pointing to the correct database instance name: 'legal-docs-db'.
-      - '--add-cloudsql-instances'
-      - '${PROJECT_ID}:${_REGION}:legal-docs-db'
-      - '--set-env-vars=DB_USER=postgres,DB_NAME=law_depository,INSTANCE_CONNECTION_NAME=${PROJECT_ID}:${_REGION}:legal-docs-db'
-      # Securely attach your secrets (API key and database password).
-      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,DB_PASSWORD=DB_PASSWORD:latest'
+      # Connect the service to the database instance
+      - '--add-cloudsql-instances=gen-lang-client-0486914658:us-central1:legal-docs-db'
+      # Provide ALL secrets the application code needs to run
+      - '--update-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
+      - '--update-secrets=DB_PASSWORD=DB_PASSWORD:latest'
+      - '--update-secrets=DB_USER=DB_USER:latest'
+      - '--update-secrets=DB_NAME=DB_NAME:latest'
+      - '--update-secrets=DB_HOST=DB_HOST:latest'
 
-# Default region for deployment.
-substitutions:
-  _REGION: 'us-central1'
+# Set the service account for the build
+serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/62820233523-compute@developer.gserviceaccount.com'
 
-# The final image that was built and pushed.
-images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
-
-# --- THIS IS THE FIX ---
-# Specify the logging option to resolve the service account permissions issue.
+# Specify logging options to avoid permissions errors
 options:
   logging: CLOUD_LOGGING_ONLY
 
