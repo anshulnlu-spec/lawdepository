@@ -1,105 +1,87 @@
-import os
-from fastapi import FastAPI, Request, BackgroundTasks
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-import database
-import tasks
+import logging
+import sys
 
-# Get the project ID from the environment variable set by GCP
-GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
+# Configure logging at the very beginning to capture everything.
+# This will print detailed messages to your Google Cloud logs.
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-app = FastAPI(title="Global Law Depository API")
+logging.info("Application starting up...")
 
-# Allow all cross-origin requests for simplicity
+try:
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import JSONResponse
+    from fastapi.middleware.cors import CORSMiddleware
+    import database
+    logging.info("All primary modules imported successfully.")
+except Exception as e:
+    logging.error(f"CRITICAL FAILURE during initial imports: {e}")
+    # If this fails, the container will crash, and this log will be the reason.
+    raise
+
+app = FastAPI(title="Global Insolvency Law Depository API")
+logging.info("FastAPI app initialized.")
+
+# Allow cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logging.info("CORS middleware configured.")
 
 @app.on_event("startup")
 def on_startup():
-    """
-    This function runs when the Cloud Run instance starts.
-    It ensures the database and its tables are created.
-    """
-    print("Application startup: Initializing database...")
-    database.init_db()
-    print("Database initialized.")
+    """Ensure the database and tables are created on application startup."""
+    logging.info("Executing FastAPI startup event...")
+    try:
+        logging.info("Attempting to initialize the database (running create_all)...")
+        database.init_db()
+        logging.info("Database initialized successfully. Tables should exist.")
+    except Exception as e:
+        # This is the most likely place for a crash. This log will capture the exact error.
+        logging.error(f"CRITICAL FAILURE during database initialization: {e}", exc_info=True)
+        # We raise the exception to ensure the startup fails visibly if the DB is not ready.
+        raise
 
 @app.get("/api/health")
 def health_check():
-    """A simple health check endpoint that Cloud Run can use to verify the instance is live."""
+    """A simple health check endpoint."""
     return {"status": "ok"}
 
 @app.get("/api/documents")
 def get_documents():
-    """
-    The main API endpoint for the frontend. Fetches all categorized documents
-    from the database and formats them for display.
-    """
-    print("API call received for /api/documents")
+    """Fetches all categorized and validated documents from the database."""
+    logging.info("API CALL: /api/documents endpoint hit.")
     try:
         docs = database.get_all_documents()
-        
-        # Prepare a structured dictionary for the frontend
-        categorized_docs = {}
-        
+        logging.info(f"Successfully retrieved {len(docs)} documents from database.")
+        categorized_docs = {
+            "India": {}, "United Kingdom": {}, "United States": {}
+        }
         for doc in docs:
-            topic = doc.topic
+            country = doc.jurisdiction
             category = doc.category
-            
-            if topic not in categorized_docs:
-                categorized_docs[topic] = {}
-            if category not in categorized_docs[topic]:
-                categorized_docs[topic][category] = []
-                
-            categorized_docs[topic][category].append({
-                "title": doc.title,
-                "date": doc.publication_date,
-                "summary": doc.summary,
-                "url": doc.url,
-                "content_type": doc.content_type,
-                "click_count": doc.click_count
+            if category not in categorized_docs.get(country, {}):
+                categorized_docs[country][category] = []
+            categorized_docs[country][category].append({
+                "title": doc.title, "date": doc.publication_date,
+                "summary": doc.summary, "url": doc.url, "content_type": doc.content_type
             })
-        
-        return JSONResponse(content={"topics": categorized_docs})
+        return JSONResponse(content=categorized_docs)
     except Exception as e:
-        print(f"Error fetching documents: {e}")
-        return JSONResponse(status_code=500, content={"error": "Failed to retrieve documents from the database."})
+        logging.error(f"Error processing documents for API response: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": "Failed to retrieve documents."})
 
-@app.post("/api/track_click")
-async def track_click(request: Request):
-    """
-    API endpoint to track when a user clicks on a document link.
-    This data makes the AI researcher smarter over time.
-    """
-    try:
-        data = await request.json()
-        doc_url = data.get("url")
-        if doc_url:
-            database.increment_click_count(doc_url)
-            print(f"Tracked click for URL: {doc_url}")
-            return {"status": "success"}
-        return {"status": "error", "message": "URL not provided"}
-    except Exception as e:
-        print(f"Error tracking click: {e}")
-        return JSONResponse(status_code=400, content={"error": "Invalid request."})
+# Serve the static frontend files (index.html, style.css, etc.)
+# This must be mounted after all API routes.
+try:
+    app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    logging.info("Static files mounted successfully.")
+except Exception as e:
+    logging.error(f"CRITICAL FAILURE while mounting static files: {e}", exc_info=True)
+    raise
 
-@app.post("/run-tasks")
-def run_tasks_endpoint(background_tasks: BackgroundTasks):
-    """
-    A secure endpoint that Cloud Scheduler can call to trigger the AI researcher.
-    It runs the heavy AI task in the background to avoid timeouts.
-    """
-    print("Received request to run AI researcher job.")
-    background_tasks.add_task(tasks.run_update_job)
-    return {"message": "AI researcher job has been triggered and is running in the background."}
-
-# This MUST be the last part of the file.
-# It serves the frontend files (index.html, style.css, etc.) from the 'static' directory.
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+logging.info("Application setup complete. Uvicorn is now starting to serve requests.")
 
