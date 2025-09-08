@@ -28,10 +28,9 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
-      # --- THIS IS THE FIX ---
       # We are now pointing to the correct database instance name: 'legal-docs-db'.
       - '--add-cloudsql-instances'
-      - '${PROJECT_ID}:${_REGION}:legal-docs-db' 
+      - '${PROJECT_ID}:${_REGION}:legal-docs-db'
       - '--set-env-vars=DB_USER=postgres,DB_NAME=law_depository,INSTANCE_CONNECTION_NAME=${PROJECT_ID}:${_REGION}:legal-docs-db'
       # Securely attach your secrets (API key and database password).
       - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,DB_PASSWORD=DB_PASSWORD:latest'
@@ -43,4 +42,9 @@ substitutions:
 # The final image that was built and pushed.
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
+
+# --- THIS IS THE FIX ---
+# Specify the logging option to resolve the service account permissions issue.
+options:
+  logging: CLOUD_LOGGING_ONLY
 
