@@ -1,10 +1,9 @@
 fastapi
 uvicorn
-google-generative-ai
+google-generativeai
 python-dotenv
 requests
 sqlalchemy
 google-cloud-secret-manager
-
-This is the "translator" for our PostgreSQL database
 psycopg2-binary
+aiofiles
