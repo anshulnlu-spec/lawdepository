@@ -23,3 +23,4 @@ EXPOSE 8080
 # The command to run your web application when the container starts
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
+
