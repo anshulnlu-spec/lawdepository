@@ -1,5 +1,5 @@
 # The instruction manual for Google Cloud Build to deploy your site.
-# This is the final, corrected version with the logging fix.
+# This is the final, corrected version with the database connection fix.
 steps:
   # Step 1: Build the container image using the Dockerfile.
   - name: 'gcr.io/cloud-builders/docker'
@@ -28,6 +28,8 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      # This next line is the crucial fix. It tells Cloud Run not to look for a database.
+      - '--clear-cloudsql-instances'
       - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets=GEMINI_API_KEY=gemini-api-key:latest'
 
@@ -35,8 +37,7 @@ steps:
 images:
   - 'gcr.io/$PROJECT_ID/law-depository-service:$COMMIT_SHA'
 
-# This is the crucial fix for the error you encountered.
-# It tells Cloud Build to use the standard cloud logging service.
+# This tells Cloud Build to use the standard cloud logging service.
 options:
   logging: CLOUD_LOGGING_ONLY
 
