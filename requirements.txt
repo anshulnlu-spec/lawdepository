@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+google-generativeai
+python-dotenv
+requests
+sqlalchemy
+google-cloud-secret-manager

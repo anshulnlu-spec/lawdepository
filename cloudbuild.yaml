@@ -1,0 +1,24 @@
+# Instructions for Google Cloud Build
+steps:
+# Step 1: Build the container image using the Dockerfile
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/law-depository:$COMMIT_SHA', '.']
+
+# Step 2: Push the container image to Google's Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/$PROJECT_ID/law-depository:$COMMIT_SHA']
+
+# Step 3: Deploy the new image to Cloud Run to make the website live
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'law-depository-service' # The name of your live service
+    - '--image=gcr.io/$PROJECT_ID/law-depository:$COMMIT_SHA'
+    - '--region=us-central1' # You can change this to a region near you
+    - '--platform=managed'
+    - '--allow-unauthenticated' # Allows public access to your website
+    - '--set-secrets=GEMINI_API_KEY=gemini-api-key:latest' # Securely connects your API key
+    - '--project=$PROJECT_ID'
+
