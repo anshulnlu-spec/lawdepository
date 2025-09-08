@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
+# CORRECTED: The 'URL' class must be capitalized.
 from sqlalchemy.engine.url import URL
 
 # This is the new, cloud-native way to connect.
@@ -29,7 +30,6 @@ Base = declarative_base()
 
 class Document(Base):
     __tablename__ = "documents"
-    # CORRECTED: Removed the incorrect "os." prefixes from Column, Integer, etc.
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String, unique=True, nullable=False)
     title = Column(String, nullable=False)
