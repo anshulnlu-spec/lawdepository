@@ -29,6 +29,7 @@ Base = declarative_base()
 
 class Document(Base):
     __tablename__ = "documents"
+    # CORRECTED: Removed the incorrect "os." prefixes from Column, Integer, etc.
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String, unique=True, nullable=False)
     title = Column(String, nullable=False)
