@@ -1,92 +1,86 @@
-Global Law Depository (Google Cloud Platform Version)
-This is an AI-powered repository of legal documents that automatically discovers, analyzes, and categorizes new content daily. It is designed for a professional, scalable deployment on Google Cloud Platform.
+# Legal Docs Service
 
-Architecture
-Cloud Run: Hosts the live FastAPI web application.
+This repository contains the source code and deployment configuration for the **Legal Docs Service**, a FastAPI application deployed on Google Cloud Run.
 
-Cloud Scheduler: Triggers the AI researcher job on a daily schedule.
+---
 
-Cloud Build: Automatically builds and deploys the application from this GitHub repository.
+## Features
 
-Secret Manager: Securely stores the Gemini API key.
+* FastAPI backend served with Uvicorn.
+* PostgreSQL database connection (via SQLAlchemy & psycopg2).
+* Configuration management with `config.py` and `.env` (for local dev).
+* Secure secret management using **Google Secret Manager** for production (`DB_USER`).
+* Automated build and deployment with **Cloud Build** and `cloudbuild.yaml`.
 
-One-Click Deployment
-Simple Setup Instructions
-Follow these steps to get your website live.
+---
 
-1. Prepare Your Google Cloud Project
-Before clicking the button above, you need to do a one-time setup in your Google Cloud account.
+## Local Development
 
-A. Create a New Project:
+1. Clone the repository:
 
-Go to the Google Cloud Console.
+   ```bash
+   git clone https://github.com/your-org/legal-docs-service.git
+   cd legal-docs-service
+   ```
 
-Create a new project and give it a name (e.g., law-depository-project).
+2. Create and activate a virtual environment:
 
-Important: Make sure your new project is selected at the top of the page.
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
 
-B. Enable the 5 Necessary APIs:
+3. Install dependencies:
 
-In the search bar at the top, find and Enable each of these five services one by one:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Cloud Run API
+4. Run locally:
 
-Cloud Build API
+   ```bash
+   uvicorn main:app --reload
+   ```
 
-Secret Manager API
+App will be available at: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-Cloud Scheduler API
+---
 
-Artifact Registry API
+## Deployment
 
-C. Store Your Gemini API Key:
+This project uses **Google Cloud Build** to build and deploy to **Cloud Run**.
 
-In the search bar, find Secret Manager.
+### Pre-requisites
 
-Click Create Secret.
+* Google Cloud project: `gen-lang-client-0486914658`
+* Enable the following APIs:
 
-Name: gemini-api-key (use this exact name).
+  * Cloud Run
+  * Cloud Build
+  * Artifact Registry
+  * Secret Manager
+* Secret in Secret Manager: `legal-docs-db-user`
+* Service account permissions:
 
-Secret value: Paste your actual Gemini API key.
+  * `roles/run.admin`
+  * `roles/secretmanager.secretAccessor`
 
-Click Create Secret.
+### Deploying Manually
 
-2. Deploy the Application
-Once the one-time setup is complete, come back to this README.md file on GitHub.
+To build and deploy manually from local:
 
-Click the "Run on Google Cloud" button at the top.
+```bash
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions=_SERVICE_NAME=legal-docs-service,_REGION=us-central1,_PROJECT_ID=gen-lang-client-0486914658,_REPOSITORY=legal-docs-repo,_IMAGE_TAG=latest,_SECRET_NAME=legal-docs-db-user
+```
 
-A new window will open. Follow the on-screen prompts to:
+### Deploying via GitHub Trigger
 
-Authorize Google Cloud to connect to your GitHub account.
+1. Connect your GitHub repo to Google Cloud Build.
+2. Create a trigger:
 
-Confirm the repository and branch.
+   * Event: Push to `main` (or your default branch).
+   * Configuration file: `cloudbuild.yaml`
+   * Substitutions (set in trigger UI):
 
-Approve the deployment settings.
-
-This will automatically create the Cloud Build trigger and deploy your website to Cloud Run. The first build may take 5-10 minutes.
-
-3. Schedule the Daily AI Researcher
-After the deployment is successful, you need to set up the daily automated job.
-
-Go to the Cloud Run page in your Google Cloud Console and find your new service (law-depository-service). Click on it and copy its URL.
-
-Go to the Cloud Scheduler page.
-
-Click Create Job.
-
-Name: daily-ai-researcher
-
-Frequency: 0 4 * * * (This runs every day at 4 AM)
-
-Timezone: Select your desired timezone.
-
-Target type: HTTP
-
-URL: Paste the URL you copied and add /run-tasks at the end (e.g., https://your-service-url.run.app/run-tasks).
-
-HTTP method: POST
-
-Click Create.
-
-Congratulations! Your website is now fully deployed and automated.
+     * \`\_SERVIC
