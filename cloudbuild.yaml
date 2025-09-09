@@ -12,7 +12,18 @@ steps:
   args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest']
   id: 'Push'
 
-# Step 3: Deploy the container image to Cloud Run
+# Step 3: THE FIX - This is the new, crucial step.
+# It cleans up any old environment variables that might conflict with our new secret-based ones.
+# We run this for each secret to be safe. It will ignore errors if the variable doesn't exist.
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Clean-Old-Variables'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud run services update legal-docs-service --region us-central1 --remove-env-vars=GEMINI_API_KEY,DB_PASSWORD,DB_USER,DB_NAME,DB_HOST --quiet || true
+
+# Step 4: Deploy the container image to Cloud Run with the correct secret configuration.
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   id: 'Deploy'
   entrypoint: gcloud
@@ -27,9 +38,8 @@ steps:
     - '--platform'
     - 'managed'
     - '--quiet'
-    # This is the crucial part: It securely attaches all your secrets to the application.
-    # The application can then access them as environment variables.
-    - '--set-secrets'
+    # This securely attaches all your secrets to the application.
+    - '--update-secrets'
     - |
       GEMINI_API_KEY=GEMINI_API_KEY:latest,
       DB_PASSWORD=DB_PASSWORD:latest,
