@@ -1,92 +1,84 @@
-import os
 import logging
-import threading
-import time
-from typing import Optional
-
+import sys
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import database
+from config import LEGISLATION_TOPICS
 
-# Try to import your database module if present. If not present, we still start the app.
-try:
-    import database
-except Exception as e:  # ImportError or other errors when importing (keep robust)
-    database = None
-    logging.getLogger("main").warning("database module import failed: %s", e)
+# Configure logging to see output in Google Cloud Run logs
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Optional: import any config module (safe if missing)
-try:
-    import config
-except Exception:
-    config = None
+app = FastAPI(title="Global Law Depository API")
 
-# Basic logging setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("legal-docs-service")
-
-app = FastAPI(title="Legal Docs Service")
-
-@app.get("/", tags=["root"])
-def read_root():
-    return {"status": "ok", "service": "legal-docs-service"}
-
-@app.get("/api/health", tags=["health"])
-def health() -> dict:
-    """
-    Health endpoint used for readiness/liveness checks.
-    Returns status ok if app process is running.
-    Note: it does NOT assert DB connectivity to avoid failing container startup.
-    """
-    return {"status": "ok"}
-
-def _init_db_if_available(retries: int = 6, delay: int = 10):
-    """
-    Try to call database.init_db() if present. Retries on Exception.
-    Runs in a background daemon thread from the startup handler so container startup is not blocked.
-    """
-    if database is None:
-        logger.info("No database module found; skipping DB initialization.")
-        return
-
-    init_fn = getattr(database, "init_db", None)
-    if not callable(init_fn):
-        logger.info("database.init_db not found or not callable; skipping DB initialization.")
-        return
-
-    for attempt in range(1, retries + 1):
-        try:
-            logger.info(f"DB init attempt {attempt}/{retries}...")
-            init_fn()
-            logger.info("Database initialized successfully.")
-            return
-        except Exception as e:
-            logger.exception(f"DB init attempt {attempt} failed: {e}")
-            if attempt == retries:
-                logger.error("All DB init attempts failed — continuing without blocking the app.")
-                return
-            time.sleep(delay)
+# Allow all cross-origin requests for simplicity
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def on_startup():
-    """
-    Startup event: spawn background thread to initialize DB (non-blocking).
-    This prevents container crashes when DB or secrets are temporarily unavailable.
-    """
-    logger.info("FastAPI startup event triggered.")
-    t = threading.Thread(target=_init_db_if_available, kwargs={"retries": 6, "delay": 10}, daemon=True)
-    t.start()
+    """Ensure the database and tables are created on application startup."""
+    logging.info("FastAPI startup: Initializing database...")
+    try:
+        database.init_db()
+        logging.info("Database initialization successful.")
+    except Exception as e:
+        logging.critical(f"FATAL: Database initialization failed: {e}", exc_info=True)
+        # If the DB fails to init, the app is not healthy and should not start.
+        raise
 
-# Example endpoint that uses DB if available (safe-check)
-@app.get("/api/items/{item_id}", tags=["items"])
-def get_item(item_id: int):
-    """
-    Example handler that will call database.get_item if available.
-    Returns a placeholder if DB helpers are not present.
-    """
-    if database is not None and hasattr(database, "get_item"):
-        try:
-            return database.get_item(item_id)
-        except Exception as e:
-            logger.exception("Error fetching item from database: %s", e)
-            raise HTTPException(status_code=500, detail="Database error")
-    # Fallback placeholder
-    return {"id": item_id, "title": "not found", "message": "Database not configured or item missing"}
+@app.get("/api/health")
+def health_check():
+    """A simple health check endpoint."""
+    return {"status": "ok"}
+
+@app.get("/api/topics")
+def get_topics():
+    """Returns the list of legislation topics for the frontend navigation."""
+    logging.info("API CALL: /api/topics")
+    return JSONResponse(content=LEGISLATION_TOPICS)
+
+@app.get("/api/documents/{topic}")
+def get_documents(topic: str):
+    """Fetches all categorized documents for a specific topic from the database."""
+    logging.info(f"API CALL: /api/documents/{topic}")
+    try:
+        # URL Decode the topic name in case it has spaces like "Companies%20Act"
+        from urllib.parse import unquote
+        decoded_topic = unquote(topic)
+
+        docs = database.get_documents_by_topic(decoded_topic)
+        
+        categorized_docs = {
+            "India": {}, "United Kingdom": {}, "United States": {}
+        }
+        for doc in docs:
+            country = doc.jurisdiction
+            category = doc.category
+            if country not in categorized_docs:
+                categorized_docs[country] = {}
+            if category not in categorized_docs[country]:
+                categorized_docs[country][category] = []
+            
+            categorized_docs[country][category].append({
+                "title": doc.title,
+                "date": doc.publication_date,
+                "summary": doc.summary,
+                "url": doc.url,
+                "content_type": doc.content_type
+            })
+        logging.info(f"Found and processed {len(docs)} documents for topic '{decoded_topic}'.")
+        return JSONResponse(content=categorized_docs)
+    except Exception as e:
+        logging.error(f"Error fetching documents for topic '{topic}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve documents.")
+
+# Serve the static frontend files (index.html, style.css, etc.)
+# This must be mounted after all API routes.
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
