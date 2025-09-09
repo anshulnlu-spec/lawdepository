@@ -1,112 +1,107 @@
-cat > database.py <<'PY'
-"""
-Robust database helper for Cloud Run / local fallback.
-- If DB env vars are present, constructs a Postgres connection string suitable for Cloud SQL UNIX socket usage:
-    postgresql+psycopg2://<user>:<password>@/<db>?host=/cloudsql/<INSTANCE_CONNECTION_NAME>
-  This is built as a plain string to avoid SQLAlchemy URL.create query-type errors.
-- If required env vars are missing, falls back to a local SQLite file (./app.db) so container can start.
-- Exposes: engine, SessionLocal, Base, init_db(), get_item()
-"""
 import os
+import sys
 import logging
-from datetime import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.engine.url import URL
 
-from sqlalchemy import Column, Integer, String, Text, Date, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+# Configure basic logging to help with debugging in Cloud Run
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-logger = logging.getLogger("database")
-logging.basicConfig(level=logging.INFO)
+# This is the new, cloud-native way to connect.
+# It reads the secret variables provided by Cloud Run.
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+db_host = os.getenv("DB_HOST") # This will be the socket path e.g. /cloudsql/project:region:instance
+db_name = os.getenv("DB_NAME")
 
-# Read environment variables (may be None)
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
-INSTANCE_CONNECTION_NAME = os.getenv("INSTANCE_CONNECTION_NAME")  # e.g. project:region:instance
+# This is a critical check. If any secret is missing, it will log a clear error and exit.
+if not all([db_user, db_password, db_host, db_name]):
+    logging.critical("DATABASE FATAL ERROR: One or more database environment variables are not set. Exiting.")
+    # In a real-world scenario, you might want to handle this more gracefully,
+    # but for Cloud Run, a hard exit makes the problem visible immediately.
+    sys.exit(1)
 
-def _build_database_url():
-    """
-    Build a DB URL string. If required Postgres envs present, return a Postgres URL that uses
-    the Cloud SQL unix socket path. Otherwise return a sqlite file URL.
-    """
-    if DB_USER and DB_PASSWORD and DB_NAME and INSTANCE_CONNECTION_NAME:
-        # Use Cloud SQL Unix socket connection via SQLAlchemy URL string
-        # Format (works without setting 'host' key which can cause type errors via URL.create):
-        # postgresql+psycopg2://<user>:<password>@/<db>?host=/cloudsql/<INSTANCE_CONNECTION_NAME>
-        user = DB_USER
-        pw = DB_PASSWORD
-        db = DB_NAME
-        inst = INSTANCE_CONNECTION_NAME
-        url = f"postgresql+psycopg2://{user}:{pw}@/{db}?host=/cloudsql/{inst}"
-        logger.info("Using Cloud SQL Postgres URL (unix socket).")
-        return url
-    else:
-        # Fallback: SQLite local file (safe for startup and local dev)
-        logger.warning("One or more DB env vars missing (DB_USER/DB_PASSWORD/DB_NAME/INSTANCE_CONNECTION_NAME). Falling back to SQLite for startup.")
-        sqlite_path = os.getenv("SQLITE_PATH", "./app.db")
-        return f"sqlite:///{sqlite_path}"
+# Build the database URL for Cloud SQL (PostgreSQL)
+# The drivername 'postgresql+psycopg2' tells SQLAlchemy how to talk to Postgres.
+DATABASE_URL = URL.create(
+    drivername="postgresql+psycopg2",
+    username=db_user,
+    password=db_password,
+    database=db_name,
+    query={"host": db_host},
+)
 
-DATABASE_URL = _build_database_url()
-
-# Create engine, session factory, base
-# Use future=True for SQLAlchemy 1.4+ style
-engine = create_engine(DATABASE_URL, future=True, echo=False)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+# The engine now connects to our Cloud SQL database.
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Example Document model used by endpoints (compatible with earlier expectations)
+# --- Database Model Definition ---
+
 class Document(Base):
     __tablename__ = "documents"
     id = Column(Integer, primary_key=True, index=True)
-    url = Column(String(2048), nullable=True)
-    title = Column(String(1024), nullable=True)
-    publication_date = Column(Date, nullable=True)
-    summary = Column(Text, nullable=True)
-    category = Column(String(256), nullable=True)
-    jurisdiction = Column(String(256), nullable=True)
-    content_type = Column(String(128), nullable=True)
-    topic = Column(String(256), nullable=True)
+    url = Column(String, unique=True, nullable=False)
+    title = Column(String, nullable=False)
+    publication_date = Column(String)
+    summary = Column(Text)
+    category = Column(String)
+    jurisdiction = Column(String)
+    content_type = Column(String)
+    # This is the new, crucial column to support multiple topics.
+    topic = Column(String, index=True)
+
+# --- Database Interaction Functions ---
 
 def init_db():
-    """
-    Create DB tables if they don't exist. Safe to call multiple times.
-    This should be called in a background thread (not to block startup) — main.py already starts it in background.
-    """
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables ensured.")
-    except Exception as e:
-        logger.exception("init_db failed: %s", e)
-        # Do not exit the process — log and continue so container can start.
+    """This function creates all database tables based on the model."""
+    logging.info("Creating database tables if they don't exist...")
+    Base.metadata.create_all(bind=engine)
+    logging.info("Table creation check complete.")
 
-def get_item(item_id: int):
-    """
-    Return a document by id or a safe placeholder.
-    """
+def add_document(url, title, publication_date, summary, category, jurisdiction, content_type, topic):
+    """Adds a new document to the database."""
     db = SessionLocal()
     try:
-        doc = db.query(Document).filter(Document.id == item_id).first()
-        if not doc:
-            return {"id": item_id, "title": "not found", "message": "Document not found"}
-        # Convert SQLAlchemy object to dict
-        return {
-            "id": doc.id,
-            "url": doc.url,
-            "title": doc.title,
-            "publication_date": doc.publication_date.isoformat() if doc.publication_date else None,
-            "summary": doc.summary,
-            "category": doc.category,
-            "jurisdiction": doc.jurisdiction,
-            "content_type": doc.content_type,
-            "topic": doc.topic,
-        }
+        db_doc = Document(
+            url=url, title=title, publication_date=publication_date,
+            summary=summary, category=category, jurisdiction=jurisdiction,
+            content_type=content_type, topic=topic
+        )
+        db.add(db_doc)
+        db.commit()
+        logging.info(f"Successfully added document: {title}")
+    except Exception as e:
+        logging.error(f"Failed to add document {url}. Error: {e}")
+        db.rollback()
     finally:
         db.close()
 
-# If you want to keep a fast sanity check during import, log the chosen URL (do NOT raise/exit)
-logger.info("DATABASE_URL chosen (hidden for safety). Using scheme: %s", DATABASE_URL.split(":", 1)[0] if DATABASE_URL else "unknown")
-PY
+def get_documents_by_topic(topic: str):
+    """Retrieves all documents for a specific topic."""
+    db = SessionLocal()
+    try:
+        return db.query(Document).filter(Document.topic == topic).all()
+    finally:
+        db.close()
 
-# commit & push
-git add database.py
-git commit -m "fix(database): make DB initialization resilient; fallback to SQLite if secrets missing; provide init_db and get_item"
-git push origin main
+def get_new_links(discovered_links):
+    """
+    Filters a list of discovered links, returning only those not
+    already present in the database.
+    """
+    db = SessionLocal()
+    try:
+        existing_urls_query = db.query(Document.url).all()
+        existing_urls = {url for (url,) in existing_urls_query}
+        new_links = [link for link in discovered_links if link['url'] not in existing_urls]
+        return new_links
+    finally:
+        db.close()
+
+# Example function that might be used for advanced features later
+def get_popular_topics():
+    # Placeholder for a more advanced analytics query
+    return ["Insolvency and Bankruptcy Law", "Companies Act"]
+
