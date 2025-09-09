@@ -5,6 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.engine.url import URL
 
+# Configure basic logging to help with debugging in Cloud Run
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 # This is the new, cloud-native way to connect.
 # It reads the secret variables provided by Cloud Run.
 db_user = os.getenv("DB_USER")
