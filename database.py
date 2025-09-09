@@ -2,63 +2,31 @@ import os
 import sys
 import logging
 from sqlalchemy import create_engine
-from sqlalchemy.engine.url import URL
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.engine.url import URL
 
-# Configure logging
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# ... (logging setup and the rest of your file) ...
 
-# --- Configuration ---
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
-DB_HOST = os.getenv("DB_HOST") # For local TCP connection (e.g., "localhost")
-# The Cloud SQL connection name is the primary indicator of a Cloud Run environment.
-CLOUD_SQL_CONNECTION_NAME = os.getenv("CLOUD_SQL_CONNECTION_NAME")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+db_host = os.getenv("DB_HOST") # This will be "project:region:instance"
+db_name = os.getenv("DB_NAME")
 
-# Exit immediately if essential secrets are not set
-if not all([DB_USER, DB_PASSWORD, DB_NAME]):
-    logging.critical("FATAL: DB_USER, DB_PASSWORD, and DB_NAME must be set.")
+if not all([db_user, db_password, db_host, db_name]):
+    logging.critical("DATABASE FATAL ERROR: One or more database environment variables are not set.")
     sys.exit(1)
 
-# --- URL Construction ---
-if CLOUD_SQL_CONNECTION_NAME:
-    # We are in a Google Cloud Run environment
-    logging.info("Using Cloud SQL Unix socket for database connection.")
-    db_socket_path = f"/cloudsql/{CLOUD_SQL_CONNECTION_NAME}"
-    
-    DATABASE_URL = URL.create(
-        drivername="postgresql+psycopg2",
-        username=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        query={"host": db_socket_path},
-    )
-else:
-    # We are in a local development environment
-    logging.info("Using TCP for local database connection.")
-    # Use localhost as a default if DB_HOST is not set
-    db_host_local = DB_HOST or "localhost"
-    
-    DATABASE_URL = URL.create(
-        drivername="postgresql+psycopg2",
-        username=DB_USER,
-        password=DB_PASSWORD,
-        host=db_host_local,
-        port=5432,
-        database=DB_NAME,
-    )
-
-# --- Engine and Session Setup ---
-# pool_pre_ping=True checks connection validity, preventing errors from stale connections.
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=300 # Recycle connections every 5 minutes
+# Build the database URL for Cloud SQL using a Unix socket
+DATABASE_URL = URL.create(
+    drivername="postgresql+psycopg2",
+    username=db_user,
+    password=db_password,
+    database=db_name,
+    query={"host": f"/cloudsql/{db_host}"},
 )
 
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 # --- Dependency for Web Frameworks (like FastAPI) ---
