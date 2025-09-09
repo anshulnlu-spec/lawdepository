@@ -1,6 +1,5 @@
 # This file defines a reusable, automated build and deployment process.
 # It uses substitutions to avoid hardcoding names and regions.
-
 steps:
 # Step 1: Build the container image using Docker.
 # The image tag uses the short Git commit SHA for versioning.
@@ -34,7 +33,8 @@ steps:
     - '${_REGION}'
     - '--platform'
     - 'managed'
-    - '--quiet' # Keep this for cleaner logs, but remove for debugging
+    # Remove --quiet for debugging, add back later if needed
+    # - '--quiet'
     # Ensures no old plain-text environment variables are left behind.
     - '--clear-env-vars'
     # Securely attaches secrets as a single, comma-separated string.
