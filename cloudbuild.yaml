@@ -1,83 +1,63 @@
-# cloudbuild.yaml — builds image, deploys, grants secret access, then attaches secrets
-substitutions:
-  _SERVICE_NAME: "legal-docs-service"
-  _REGION: "us-central1"
-  _PROJECT_ID: "gen-lang-client-0486914658"
-  _REPOSITORY: "legal-docs-repo"
-  _IMAGE_TAG: "latest"
-  _SECRET_DB_USER: "legal-docs-db-user"
-  _SECRET_DB_PASSWORD: "legal-docs-db-password"
-  _SECRET_DB_NAME: "legal-docs-db-name"
+# This file defines the automated build and deployment process.
+# It runs every time you push a change to your GitHub repository.
 
 steps:
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build image'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}', '.']
+# Step 1: Build the container image using Docker
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest', '.']
+  id: 'Build'
 
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push image'
-    args: ['push', 'us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}']
+# Step 2: Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest']
+  id: 'Push'
 
-  # Deploy the service first without DB secrets (makes sure the service exists)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Initial deploy (no DB secrets)'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        set -euo pipefail
-        gcloud run deploy "${_SERVICE_NAME}" \
-          --image "us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}" \
-          --region "${_REGION}" --platform managed --project "${_PROJECT_ID}" \
-          --set-env-vars PORT=8080 \
-          --allow-unauthenticated --timeout=10m --quiet
+# Step 3: THE FIX - This is the new, crucial step.
+# It cleans up any old environment variables that might conflict with our new secret-based ones.
+# It will ignore errors if the variables don't already exist.
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Clean-Old-Variables'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud run services update legal-docs-service --region us-central1 --remove-env-vars=GEMINI_API_KEY,DB_PASSWORD,DB_USER,DB_NAME,DB_HOST --quiet || true
 
-  # Grant Secret Manager access to the Cloud Run runtime service account
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Grant secret access to runtime SA'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        set -euo pipefail
-        SERVICE="${_SERVICE_NAME}"
-        REGION="${_REGION}"
-        PROJECT="${_PROJECT_ID}"
-        # Try to discover the service account used by the service; fallback to project's compute default
-        RUNTIME_SA=$(gcloud run services describe "${SERVICE}" --region "${REGION}" --platform=managed --project="${PROJECT}" --format='value(spec.template.spec.serviceAccountName)' || true)
-        if [ -z "${RUNTIME_SA}" ]; then
-          PROJECT_NUM=$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')
-          RUNTIME_SA="${PROJECT_NUM}-compute@developer.gserviceaccount.com"
-        fi
-        if [[ "${RUNTIME_SA}" != *"@"* ]]; then
-          RUNTIME_SA="${RUNTIME_SA}@${PROJECT}.iam.gserviceaccount.com"
-        fi
-        echo "Granting Secret Manager access to ${RUNTIME_SA}"
-        gcloud secrets add-iam-policy-binding "projects/${PROJECT}/secrets/${_SECRET_DB_USER}" \
-          --member="serviceAccount:${RUNTIME_SA}" --role="roles/secretmanager.secretAccessor" || true
-        gcloud secrets add-iam-policy-binding "projects/${PROJECT}/secrets/${_SECRET_DB_PASSWORD}" \
-          --member="serviceAccount:${RUNTIME_SA}" --role="roles/secretmanager.secretAccessor" || true
-        gcloud secrets add-iam-policy-binding "projects/${PROJECT}/secrets/${_SECRET_DB_NAME}" \
-          --member="serviceAccount:${RUNTIME_SA}" --role="roles/secretmanager.secretAccessor" || true
+# Step 4: Deploy the container image to Cloud Run with the correct secret configuration.
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Deploy'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'legal-docs-service' # Your service name
+    - '--image'
+    - 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
+    - '--region'
+    - 'us-central1'
+    - '--platform'
+    - 'managed'
+    - '--quiet'
+    # This securely attaches all your secrets to the application.
+    # --update-secrets is used to safely add or modify the secret mappings.
+    - '--update-secrets'
+    - |
+      GEMINI_API_KEY=GEMINI_API_KEY:latest,
+      DB_PASSWORD=DB_PASSWORD:latest,
+      DB_USER=DB_USER:latest,
+      DB_NAME=DB_NAME:latest,
+      DB_HOST=DB_HOST:latest
+    # This connects your service to the Cloud SQL database instance.
+    - '--add-cloudsql-instances'
+    - 'gen-lang-client-0486914658:us-central1:legal-docs-db' # Your DB connection name
+    # This makes your service publicly accessible.
+    - '--allow-unauthenticated'
 
-  # Remove previous conflicting mappings (no-op if absent) and then attach secrets to the service
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Attach DB secrets to service (remove old mappings first)'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        set -euo pipefail
-        SERVICE="${_SERVICE_NAME}"
-        REGION="${_REGION}"
-        PROJECT="${_PROJECT_ID}"
-        echo "Cleaning any old DB_* mappings (secrets/envs)..."
-        gcloud run services update "${SERVICE}" --region="${REGION}" --platform=managed --project="${PROJECT}" --remove-secrets DB_NAME DB_USER DB_PASSWORD || true
-        gcloud run services update "${SERVICE}" --region="${REGION}" --platform=managed --project="${PROJECT}" --remove-env-vars DB_NAME DB_USER DB_PASSWORD || true
-
-        echo "Setting DB secrets on service..."
-        gcloud run services update "${SERVICE}" --region="${REGION}" --platform=managed --project="${PROJECT}" \
-          --set-secrets DB_USER=${_SECRET_DB_USER}:latest,DB_PASSWORD=${_SECRET_DB_PASSWORD}:latest,DB_NAME=${_SECRET_DB_NAME}:latest --quiet
-
+# Define the image to be pushed to Artifact Registry
 images:
-  - 'us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}'
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/app:latest'
+
+# Set logging options for the build process
+options:
+  logging: CLOUD_LOGGING_ONLY
+
