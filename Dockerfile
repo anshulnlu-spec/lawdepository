@@ -1,26 +1,32 @@
-# Use an official, secure Python runtime as a parent image
+# Use official slim Python runtime
 FROM python:3.11-slim
 
-# Set the working directory inside the container
+# Prevents Python from writing .pyc files to disk and buffers output
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+
 WORKDIR /app
 
-# Set environment variables to ensure Python runs smoothly
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Install system deps required by psycopg2 and similar packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    libpq-dev \
+    curl \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy the file that lists the required Python packages
+# Copy dependency definitions first for better caching
 COPY requirements.txt .
 
-# Install the required packages
+# Use --no-cache-dir to reduce image size
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application's code into the container
+# Copy app sources
 COPY . .
 
-# Expose port 8080 to allow web traffic
+# Optional: expose the default port (Cloud Run ignores this, but it helps locally)
 EXPOSE 8080
 
-# The command to run your web application when the container starts
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-
-
+# Start command: use shell form so ${PORT} expands at runtime
+CMD ["bash", "-lc", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
