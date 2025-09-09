@@ -27,7 +27,8 @@ steps:
     - '--platform'
     - 'managed'
     - '--quiet'
-    # This securely attaches all your secrets to the application.
+    # This is the crucial part: It securely attaches all your secrets to the application.
+    # The application can then access them as environment variables.
     - '--set-secrets'
     - |
       GEMINI_API_KEY=GEMINI_API_KEY:latest,
@@ -37,7 +38,7 @@ steps:
       DB_HOST=DB_HOST:latest
     # This connects your service to the Cloud SQL database instance.
     - '--add-cloudsql-instances'
-    - 'gen-lang-client-0486914658:us-central1:legal-docs-db' # YOUR DB CONNECTION NAME
+    - 'gen-lang-client-0486914658:us-central1:legal-docs-db' # Your DB connection name
     # This makes your service publicly accessible.
     - '--allow-unauthenticated'
 
