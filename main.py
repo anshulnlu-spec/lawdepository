@@ -9,8 +9,9 @@ from fastapi import FastAPI, HTTPException
 # Try to import your database module if present. If not present, we still start the app.
 try:
     import database
-except Exception:  # ImportError or other errors when importing (keep robust)
+except Exception as e:  # ImportError or other errors when importing (keep robust)
     database = None
+    logging.getLogger("main").warning("database module import failed: %s", e)
 
 # Optional: import any config module (safe if missing)
 try:
@@ -87,4 +88,5 @@ def get_item(item_id: int):
         except Exception as e:
             logger.exception("Error fetching item from database: %s", e)
             raise HTTPException(status_code=500, detail="Database error")
-    # Fall
+    # Fallback placeholder
+    return {"id": item_id, "title": "not found", "message": "Database not configured or item missing"}
