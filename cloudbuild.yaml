@@ -34,10 +34,11 @@ steps:
     - '${_REGION}'
     - '--platform'
     - 'managed'
-    - '--quiet'
+    - '--quiet' # Keep this for cleaner logs, but remove for debugging
     # Ensures no old plain-text environment variables are left behind.
     - '--clear-env-vars'
     # Securely attaches secrets as a single, comma-separated string.
+    # IMPORTANT: Ensure these secrets exist in Secret Manager in the current project.
     - '--update-secrets'
     - 'GEMINI_API_KEY=GEMINI_API_KEY:latest,DB_PASSWORD=DB_PASSWORD:latest,DB_USER=DB_USER:latest,DB_NAME=DB_NAME:latest,DB_HOST=DB_HOST:latest'
     # Connects the service to the Cloud SQL database instance.
