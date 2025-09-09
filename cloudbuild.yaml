@@ -1,42 +1,75 @@
+# cloudbuild.yaml — final version for GitHub
+# This file is configured to use Secret Manager for DB_USER (recommended).
+# Usage (manual trigger):
+# gcloud builds submit --config cloudbuild.yaml \
+#   --substitutions=_SERVICE_NAME=legal-docs-service,_REGION=us-central1,_PROJECT_ID=gen-lang-client-0486914658,_REPOSITORY=legal-docs-repo,_IMAGE_TAG=latest,_SECRET_NAME=legal-docs-db-user
+
 steps:
-  # 1. Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'build'
-      - '-t'
-      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
-      - '.'
+# --------------------------------------------------
+# Step 0: Build & push image
+# --------------------------------------------------
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'build', '-t', 'us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}', '.' ]
 
-  # 2. Push the container image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'push', 'us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}' ]
 
-  # 3. Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'legal-docs-service'
-      - '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/legal-docs-repo/app:latest'
-      - '--region=us-central1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      # Connect the service to the database instance
-      - '--add-cloudsql-instances=gen-lang-client-0486914658:us-central1:legal-docs-db'
-      # Provide ALL secrets the application code needs to run
-      - '--update-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
-      - '--update-secrets=DB_PASSWORD=DB_PASSWORD:latest'
-      - '--update-secrets=DB_USER=DB_USER:latest'
-      - '--update-secrets=DB_NAME=DB_NAME:latest'
-      - '--update-secrets=DB_HOST=DB_HOST:latest'
+# --------------------------------------------------
+# Step 1: Remove any existing DB_USER mapping (safe — ignores errors)
+# --------------------------------------------------
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      set -euo pipefail
+      echo "Cleaning old DB_USER mappings (secrets or env)"
+      gcloud run services update "${_SERVICE_NAME}" --platform managed --region "${_REGION}" --project "${_PROJECT_ID}" --remove-secrets DB_USER || true
+      gcloud run services update "${_SERVICE_NAME}" --platform managed --region "${_REGION}" --project "${_PROJECT_ID}" --remove-env-vars DB_USER || true
 
-# Set the service account for the build
-serviceAccount: 'projects/${PROJECT_ID}/serviceAccounts/62820233523-compute@developer.gserviceaccount.com'
+# --------------------------------------------------
+# Step 2: Set DB_USER from Secret Manager
+# --------------------------------------------------
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      set -euo pipefail
+      if [ -z "${_SECRET_NAME}" ]; then
+        echo "ERROR: _SECRET_NAME must be provided" >&2
+        exit 1
+      fi
+      gcloud run services update "${_SERVICE_NAME}" --platform managed --region "${_REGION}" --project "${_PROJECT_ID}" --set-secrets DB_USER=${_SECRET_NAME}:latest
 
-# Specify logging options to avoid permissions errors
+# --------------------------------------------------
+# Step 3: Deploy the service
+# --------------------------------------------------
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      set -euo pipefail
+      gcloud run deploy "${_SERVICE_NAME}" \
+        --image "us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPOSITORY}/app:${_IMAGE_TAG}" \
+        --region "${_REGION}" --platform managed --project "${_PROJECT_ID}" \
+        --quiet
+
 options:
   logging: CLOUD_LOGGING_ONLY
 
+substitutions:
+  _SERVICE_NAME: 'legal-docs-service'
+  _REGION: 'us-central1'
+  _PROJECT_ID: 'gen-lang-client-0486914658'
+  _REPOSITORY: 'legal-docs-repo'
+  _IMAGE_TAG: 'latest'
+  _SECRET_NAME: 'legal-docs-db-user'
+
+# ---------------------------------------------------------------------
+# Guidance:
+# - This config always sets DB_USER from Secret Manager.
+# - Ensure the secret named in _SECRET_NAME exists.
+# - Grant the Cloud Build service account roles/run.admin and roles/secretmanager.secretAccessor.
+# - Replace default substitutions if needed in your Cloud Build trigger settings.
