@@ -16,7 +16,8 @@ if not all([db_user, db_password, db_host, db_name]):
     logging.critical("DATABASE FATAL ERROR: One or more database environment variables are not set.")
     sys.exit(1)
 
-# Build the database URL for Cloud SQL using a Unix socket
+# Build the database URL for Cloud SQL (PostgreSQL)
+# The drivername 'postgresql+psycopg2' tells SQLAlchemy how to talk to Postgres.
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg2",
     username=db_user,
@@ -50,3 +51,4 @@ def init_db():
         # Raising the exception will cause the app to fail its startup,
         # which is desirable so the orchestrator (Cloud Run) can restart it.
         raise
+
