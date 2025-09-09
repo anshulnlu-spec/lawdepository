@@ -26,5 +26,6 @@ COPY . .
 
 # The command that will run inside the container to start the web server.
 # It uses the PORT environment variable provided by Cloud Run, defaulting to 8080.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+
 
