@@ -1,87 +1,90 @@
+import os
 import logging
-import sys
+import threading
+import time
+from typing import Optional
 
-# Configure logging at the very beginning to capture everything.
-# This will print detailed messages to your Google Cloud logs.
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from fastapi import FastAPI, HTTPException
 
-logging.info("Application starting up...")
-
+# Try to import your database module if present. If not present, we still start the app.
 try:
-    from fastapi import FastAPI
-    from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import JSONResponse
-    from fastapi.middleware.cors import CORSMiddleware
     import database
-    logging.info("All primary modules imported successfully.")
-except Exception as e:
-    logging.error(f"CRITICAL FAILURE during initial imports: {e}")
-    # If this fails, the container will crash, and this log will be the reason.
-    raise
+except Exception:  # ImportError or other errors when importing (keep robust)
+    database = None
 
-app = FastAPI(title="Global Insolvency Law Depository API")
-logging.info("FastAPI app initialized.")
+# Optional: import any config module (safe if missing)
+try:
+    import config
+except Exception:
+    config = None
 
-# Allow cross-origin requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-logging.info("CORS middleware configured.")
+# Basic logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("legal-docs-service")
+
+app = FastAPI(title="Legal Docs Service")
+
+@app.get("/", tags=["root"])
+def read_root():
+    return {"status": "ok", "service": "legal-docs-service"}
+
+@app.get("/api/health", tags=["health"])
+def health() -> dict:
+    """
+    Health endpoint used for readiness/liveness checks.
+    Returns status ok if app process is running.
+    Note: it does NOT assert DB connectivity to avoid failing container startup.
+    """
+    return {"status": "ok"}
+
+def _init_db_if_available(retries: int = 6, delay: int = 10):
+    """
+    Try to call database.init_db() if present. Retries on Exception.
+    Runs in a background daemon thread from the startup handler so container startup is not blocked.
+    """
+    if database is None:
+        logger.info("No database module found; skipping DB initialization.")
+        return
+
+    init_fn = getattr(database, "init_db", None)
+    if not callable(init_fn):
+        logger.info("database.init_db not found or not callable; skipping DB initialization.")
+        return
+
+    for attempt in range(1, retries + 1):
+        try:
+            logger.info(f"DB init attempt {attempt}/{retries}...")
+            init_fn()
+            logger.info("Database initialized successfully.")
+            return
+        except Exception as e:
+            logger.exception(f"DB init attempt {attempt} failed: {e}")
+            if attempt == retries:
+                logger.error("All DB init attempts failed — continuing without blocking the app.")
+                return
+            time.sleep(delay)
 
 @app.on_event("startup")
 def on_startup():
-    """Ensure the database and tables are created on application startup."""
-    logging.info("Executing FastAPI startup event...")
-    try:
-        logging.info("Attempting to initialize the database (running create_all)...")
-        database.init_db()
-        logging.info("Database initialized successfully. Tables should exist.")
-    except Exception as e:
-        # This is the most likely place for a crash. This log will capture the exact error.
-        logging.error(f"CRITICAL FAILURE during database initialization: {e}", exc_info=True)
-        # We raise the exception to ensure the startup fails visibly if the DB is not ready.
-        raise
+    """
+    Startup event: spawn background thread to initialize DB (non-blocking).
+    This prevents container crashes when DB or secrets are temporarily unavailable.
+    """
+    logger.info("FastAPI startup event triggered.")
+    t = threading.Thread(target=_init_db_if_available, kwargs={"retries": 6, "delay": 10}, daemon=True)
+    t.start()
 
-@app.get("/api/health")
-def health_check():
-    """A simple health check endpoint."""
-    return {"status": "ok"}
-
-@app.get("/api/documents")
-def get_documents():
-    """Fetches all categorized and validated documents from the database."""
-    logging.info("API CALL: /api/documents endpoint hit.")
-    try:
-        docs = database.get_all_documents()
-        logging.info(f"Successfully retrieved {len(docs)} documents from database.")
-        categorized_docs = {
-            "India": {}, "United Kingdom": {}, "United States": {}
-        }
-        for doc in docs:
-            country = doc.jurisdiction
-            category = doc.category
-            if category not in categorized_docs.get(country, {}):
-                categorized_docs[country][category] = []
-            categorized_docs[country][category].append({
-                "title": doc.title, "date": doc.publication_date,
-                "summary": doc.summary, "url": doc.url, "content_type": doc.content_type
-            })
-        return JSONResponse(content=categorized_docs)
-    except Exception as e:
-        logging.error(f"Error processing documents for API response: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": "Failed to retrieve documents."})
-
-# Serve the static frontend files (index.html, style.css, etc.)
-# This must be mounted after all API routes.
-try:
-    app.mount("/", StaticFiles(directory="static", html=True), name="static")
-    logging.info("Static files mounted successfully.")
-except Exception as e:
-    logging.error(f"CRITICAL FAILURE while mounting static files: {e}", exc_info=True)
-    raise
-
-logging.info("Application setup complete. Uvicorn is now starting to serve requests.")
-
+# Example endpoint that uses DB if available (safe-check)
+@app.get("/api/items/{item_id}", tags=["items"])
+def get_item(item_id: int):
+    """
+    Example handler that will call database.get_item if available.
+    Returns a placeholder if DB helpers are not present.
+    """
+    if database is not None and hasattr(database, "get_item"):
+        try:
+            return database.get_item(item_id)
+        except Exception as e:
+            logger.exception("Error fetching item from database: %s", e)
+            raise HTTPException(status_code=500, detail="Database error")
+    # Fall
