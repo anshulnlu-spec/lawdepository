@@ -4,7 +4,7 @@ steps:
   args:
   - 'functions'
   - 'deploy'
-  - 'autonomous-researcher' # This is the correct name
+  - 'autonomous-researcher'
   - '--gen2'
   - '--runtime=python311'
   - '--region=us-central1'
@@ -19,3 +19,7 @@ steps:
 # Default values for our variables.
 substitutions:
   _SQL_INSTANCE_CONNECTION_NAME: 'gen-lang-client-0486914658:us-central1:legal-docs-db'
+
+# This new section tells Cloud Build where to put the logs.
+options:
+  logging: CLOUD_LOGGING_ONLY
