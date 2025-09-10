@@ -4,7 +4,7 @@ steps:
   args:
   - 'functions'
   - 'deploy'
-  - 'autonomous-researcher'
+  - 'autonomous-researcher' # This is the correct name
   - '--gen2'
   - '--runtime=python311'
   - '--region=us-central1'
