@@ -6,30 +6,38 @@
     <title>Global Law Depository</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lora:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header>
         <div class="container">
             <h1>Global Law Depository</h1>
-            <p class="subtitle">An AI-powered repository of legislative and judicial documents, automatically updated daily.</p>
+            <p class="subtitle">An AI-powered repository of legislative and judicial documents, updated automatically.</p>
         </div>
     </header>
 
     <nav class="topic-nav">
         <div class="container" id="topic-tabs">
-            <!-- Navigation tabs for different laws will be dynamically generated here -->
-        </div>
+            </div>
     </nav>
 
-    <main class="container" id="main-content">
-        <div id="loading-message">
-            <div class="spinner"></div>
-            <p>Initializing the repository and fetching the latest documents from the AI engine...</p>
+    <main class="container">
+        <div class="controls-container">
+            <input type="search" id="search-bar" placeholder="Search within this topic...">
+            <select id="sort-order">
+                <option value="newest">Sort by Newest First</option>
+                <option value="oldest">Sort by Oldest First</option>
+            </select>
         </div>
-        <div id="repo-container">
-            <!-- Document cards for the selected topic will be dynamically generated here -->
+        
+        <div id="content-area">
+            <div id="loading-message">
+                <div class="spinner"></div>
+                <p>Initializing the repository...</p>
+            </div>
+            <div id="repo-container">
+                </div>
         </div>
     </main>
 
@@ -42,6 +50,3 @@
     <script src="/static/script.js"></script>
 </body>
 </html>
-
-
-
