@@ -1,8 +1,9 @@
 import logging
 import sys
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse # Import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles # Import StaticFiles
 from sqlalchemy.orm import Session
 import database
 from config import LEGISLATION_TOPICS
@@ -11,6 +12,10 @@ from config import LEGISLATION_TOPICS
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = FastAPI(title="Global Law Depository API")
+
+# Mount the 'static' folder. This tells FastAPI to serve any file in the 'static' directory.
+# The path "/static" is the URL path where these files will be available.
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Allow all cross-origin requests
 app.add_middleware(
@@ -22,6 +27,12 @@ app.add_middleware(
 def on_startup():
     """Connect to the database when the application starts."""
     database.connect_and_init_db()
+
+# This new endpoint will serve your index.html file when someone visits the root URL.
+@app.get("/")
+async def read_index():
+    """Serves the frontend's index.html file."""
+    return FileResponse('index.html')
 
 @app.get("/api/health")
 def health_check():
