@@ -1,7 +1,10 @@
 # This file tells Google Cloud Build how to deploy the AI researcher.
 steps:
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  # This is the main command. It's the full name "gcloud".
+  entrypoint: 'gcloud'
   args:
+  # The first argument is now "functions"
   - 'functions'
   - 'deploy'
   - 'autonomous-researcher'
@@ -20,6 +23,6 @@ steps:
 substitutions:
   _SQL_INSTANCE_CONNECTION_NAME: 'gen-lang-client-0486914658:us-central1:legal-docs-db'
 
-# This new section tells Cloud Build where to put the logs.
+# This section tells Cloud Build where to put the logs.
 options:
   logging: CLOUD_LOGGING_ONLY
