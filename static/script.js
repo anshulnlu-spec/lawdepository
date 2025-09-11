@@ -1,34 +1,29 @@
 // This script runs when the webpage is fully loaded.
 document.addEventListener("DOMContentLoaded", () => {
-    // Set the "last updated" date in the footer.
     document.getElementById('last-updated').textContent = new Date().toLocaleDateString('en-GB', {
         day: 'numeric', month: 'long', year: 'numeric'
     });
-
-    // Start the process of initializing the application.
     initializeApp();
 });
 
-// This is the main function that sets up the page.
+// Main function to set up the page.
 async function initializeApp() {
     const tabsContainer = document.getElementById('topic-tabs');
     const loadingMessage = document.getElementById('loading-message');
     const repoContainer = document.getElementById('repo-container');
 
     try {
-        // Fetch the list of available legal topics from our API.
         const topicsResponse = await fetch('/api/topics');
         if (!topicsResponse.ok) throw new Error('Failed to fetch topics.');
         
         const topics = await topicsResponse.json();
 
-        // If there are no topics, show a message and stop.
         if (!topics || topics.length === 0) {
             loadingMessage.textContent = 'No legislation topics are configured.';
             return;
         }
 
-        // Create the navigation tabs for each topic.
+        // Create navigation tabs for each topic.
         tabsContainer.innerHTML = '';
         topics.forEach((topic, index) => {
             const tab = document.createElement('button');
@@ -36,19 +31,20 @@ async function initializeApp() {
             tab.textContent = topic;
             tab.onclick = () => fetchAndDisplayDocuments(topic);
             tabsContainer.appendChild(tab);
-
-            // Make the first tab active by default.
             if (index === 0) {
                 tab.classList.add('active');
             }
         });
 
-        // Fetch the documents for the first topic automatically.
+        // Fetch documents for the first topic.
         fetchAndDisplayDocuments(topics[0]);
 
         // Set up event listeners for search and sort controls.
         document.getElementById('search-bar').addEventListener('input', filterDocuments);
-        document.getElementById('sort-order').addEventListener('change', () => fetchAndDisplayDocuments(document.querySelector('.topic-tab.active').textContent));
+        document.getElementById('sort-order').addEventListener('change', () => {
+            const activeTopic = document.querySelector('.topic-tab.active').textContent;
+            fetchAndDisplayDocuments(activeTopic);
+        });
 
     } catch (error) {
         console.error('Initialization failed:', error);
@@ -57,16 +53,15 @@ async function initializeApp() {
     }
 }
 
-// This function fetches and then displays documents for a given topic.
+// Fetches and displays documents for a given topic.
 async function fetchAndDisplayDocuments(topic) {
     const container = document.getElementById('repo-container');
     const loadingMessage = document.getElementById('loading-message');
     const tabs = document.querySelectorAll('.topic-tab');
 
     loadingMessage.style.display = 'block';
-    container.innerHTML = ''; // Clear old content immediately
+    container.innerHTML = '';
     
-    // Update which tab is visually marked as "active".
     tabs.forEach(tab => tab.classList.toggle('active', tab.textContent === topic));
 
     try {
@@ -93,7 +88,7 @@ async function fetchAndDisplayDocuments(topic) {
                 container.appendChild(createJurisdictionSection(jurisdiction, categories));
             }
         }
-        // Apply search filter to the newly rendered documents
+        // Apply search filter to the newly rendered documents.
         filterDocuments();
 
     } catch (error) {
@@ -102,7 +97,7 @@ async function fetchAndDisplayDocuments(topic) {
     }
 }
 
-// Helper function to create a whole section for a country (e.g., "India").
+// Creates a whole section for a country.
 function createJurisdictionSection(jurisdiction, categories) {
     const section = document.createElement('section');
     section.className = 'jurisdiction-section';
@@ -122,7 +117,7 @@ function createJurisdictionSection(jurisdiction, categories) {
             categoryTitle.textContent = category;
             section.appendChild(categoryTitle);
             
-            // Sort documents by date based on the dropdown selection.
+            // Sort documents by date based on dropdown.
             const sortOrder = document.getElementById('sort-order').value;
             docs.sort((a, b) => {
                 const dateA = new Date(a.date);
@@ -138,7 +133,7 @@ function createJurisdictionSection(jurisdiction, categories) {
     return section;
 }
 
-// Helper function to create a single "card" for a document.
+// Creates a single "card" for a document.
 function createDocumentCard(doc) {
     const card = document.createElement('div');
     card.className = 'document-card';
@@ -160,15 +155,31 @@ function createDocumentCard(doc) {
     return card;
 }
 
-// NEW FUNCTION: Filters documents based on the search bar input.
+// Filters documents based on the search bar input.
 function filterDocuments() {
     const searchTerm = document.getElementById('search-bar').value.toLowerCase();
     const allCards = document.querySelectorAll('.document-card');
+    let visibleCount = 0;
 
     allCards.forEach(card => {
         const title = card.querySelector('.doc-title')?.textContent.toLowerCase() || '';
         const summary = card.querySelector('.doc-summary')?.textContent.toLowerCase() || '';
         const isVisible = title.includes(searchTerm) || summary.includes(searchTerm);
         card.classList.toggle('hidden', !isVisible);
+        if (isVisible) visibleCount++;
     });
+    
+    // Optional: Show a message if no search results are found.
+    const container = document.getElementById('repo-container');
+    let noResultsMessage = container.querySelector('.no-results');
+    if (visibleCount === 0 && allCards.length > 0) {
+        if (!noResultsMessage) {
+            noResultsMessage = document.createElement('p');
+            noResultsMessage.className = 'no-results';
+            container.appendChild(noResultsMessage);
+        }
+        noResultsMessage.textContent = `No documents found matching "${searchTerm}".`;
+    } else if (noResultsMessage) {
+        noResultsMessage.remove();
+    }
 }
