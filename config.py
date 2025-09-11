@@ -1,8 +1,6 @@
-# config.py - central place for feature flags and secrets fetch (from env)
-import os
-
-def get_env(name: str, default=None):
-    return os.getenv(name, default)
-
-def get_gemini_key():
-    return os.getenv("GEMINI_API_KEY")
+# The central configuration for all legislation topics.
+LEGISLATION_TOPICS = [
+    "Insolvency and Bankruptcy Law",
+    "Companies Act",
+    "Real Estate (Regulation and Development) Act, RERA"
+]
