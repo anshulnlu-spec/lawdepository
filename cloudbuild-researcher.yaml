@@ -1,5 +1,6 @@
 # This file tells Google Cloud Build how to create the AI researcher as a background job.
 steps:
+# Step 1: Build the container using the special researcher Dockerfile.
 - name: 'gcr.io/cloud-builders/docker'
   args: [
     'build',
@@ -8,9 +9,11 @@ steps:
     '.'
   ]
 
+# Step 2: Push the container image.
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/autonomous-researcher:${COMMIT_SHA}']
 
+# Step 3: Deploy to Cloud Run as a "Job".
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
   args:
