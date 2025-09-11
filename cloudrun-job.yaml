@@ -19,5 +19,6 @@ spec:
               limits:
                 cpu: 1000m
                 memory: 512Mi
-          serviceAccountName: gen-lang-client-0486914658@appspot.gserviceaccount.com
+          # This is the corrected line, pointing to the Cloud Build service account
+          serviceAccountName: 62820233523@cloudbuild.gserviceaccount.com
           timeoutSeconds: 540
