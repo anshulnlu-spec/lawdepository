@@ -1,31 +1,31 @@
-def scrape_links_from_url(url):
-    """
-    Scrape document links from a webpage.
-    Returns a list of URLs that appear to be documents.
-    """
+# analysis.py - helpers used by the research flow (web scraping / link extraction)
+import logging
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
+logger = logging.getLogger(__name__)
+
+def scrape_links_from_url(url: str, keywords=None, max_links: int = 50):
+    keywords = keywords or ["act", "law", "rule", "regulation", "gazette", ".pdf"]
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(url, timeout=30, headers=headers)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        links = []
-        
-        # Find all links
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            # Convert relative URLs to absolute
-            full_url = urljoin(url, href)
-            
-            # Filter for document-like URLs
-            if any(ext in full_url.lower() for ext in ['.pdf', '.doc', '.docx', '.html', '.htm']):
-                links.append(full_url)
-            elif any(keyword in full_url.lower() for keyword in ['act', 'law', 'regulation', 'bill', 'statute']):
-                links.append(full_url)
-        
-        print(f"Found {len(links)} potential document links from {url}")
-        return list(set(links))  # Remove duplicates
-        
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
     except Exception as e:
-        print(f"Error scraping links from {url}: {e}")
+        logger.debug("Failed to fetch %s: %s", url, e)
         return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if href.startswith("#"):
+            continue
+        full = urljoin(url, href)
+        lower = full.lower()
+        if any(kw in lower for kw in keywords):
+            links.append(full)
+        if len(links) >= max_links:
+            break
+
+    return list(dict.fromkeys(links))
