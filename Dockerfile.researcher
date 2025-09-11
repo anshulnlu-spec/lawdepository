@@ -13,13 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev build-essential gcc \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file
+# Copy and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application source code
+# Copy the application source code
 COPY . .
-
-# This container does not run a web server. It will be triggered by Cloud Scheduler.
