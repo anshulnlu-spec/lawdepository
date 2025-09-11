@@ -1,72 +1,24 @@
-# cloudbuild-researcher.yaml
-substitutions:
-  _PROJECT_ID: "gen-lang-client-0486914658"
-  _LOCATION: "us-central1"
-  _REPO: "legal-docs-repo"
-  _IMAGE: "autonomous-researcher"
-  _TAG: "latest"
-  _SERVICE: "autonomous-researcher"
-  _TARGET: "cloudrun"
-  _ALLOW_UNAUTH: "true"
-  _MEMORY: "512Mi"
-  _TIMEOUT: "300s"
-
-# <= ADDED: ensure Cloud Build accepts builds that use a custom service account
-options:
-  logging: "CLOUD_LOGGING_ONLY"
-
-timeout: "1200s"
-
+# This file tells Google Cloud Build how to deploy the AI researcher.
 steps:
-  - name: "gcr.io/cloud-builders/docker"
-    id: "Build"
-    args:
-      - "build"
-      - "-t"
-      - "us-central1-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}"
-      - "."
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'gcloud'
+  args:
+  - 'functions'
+  - 'deploy'
+  - 'autonomous-researcher'
+  - '--gen2'
+  - '--runtime=python311'
+  - '--region=us-central1'
+  - '--source=.'
+  - '--entry-point=main'
+  - '--trigger-http'
+  - '--allow-unauthenticated'
+  - '--timeout=540s'
+  - '--set-env-vars=CLOUD_SQL_CONNECTION_NAME=${_SQL_INSTANCE_CONNECTION_NAME},GCP_PROJECT_ID=${PROJECT_ID},GEMINI_SECRET_NAME=gemini-api-key'
+  - '--set-sql-instance=${_SQL_INSTANCE_CONNECTION_NAME}'
 
-  - name: "gcr.io/cloud-builders/docker"
-    id: "Push"
-    args:
-      - "push"
-      - "us-central1-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}"
-    waitFor: ["Build"]
+substitutions:
+  _SQL_INSTANCE_CONNECTION_NAME: 'gen-lang-client-0486914658:us-central1:legal-docs-db'
 
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:latest"
-    id: "Deploy"
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        set -euo pipefail
-        echo "Deploy target: ${_TARGET}"
-        gcloud config set project "${_PROJECT_ID}"
-        if [ "${_TARGET}" = "cloudrun" ]; then
-          echo "Deploying ${_SERVICE} to Cloud Run..."
-          gcloud run deploy "${_SERVICE}" \
-            --image "us-central1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE}:${_TAG}" \
-            --region "${_LOCATION}" \
-            --platform managed \
-            $( [ "${_ALLOW_UNAUTH}" = "true" ] && echo "--allow-unauthenticated" || echo "--no-allow-unauthenticated" ) \
-            --memory "${_MEMORY}" \
-            --timeout "${_TIMEOUT}"
-        elif [ "${_TARGET}" = "functions" ]; then
-          echo "Deploying ${_SERVICE} as Cloud Function (Gen2) from source..."
-          gcloud functions deploy "${_SERVICE}" \
-            --gen2 \
-            --region "${_LOCATION}" \
-            --entry-point=main \
-            --runtime=python311 \
-            --trigger-http \
-            --timeout "${_TIMEOUT}" \
-            --memory "${_MEMORY}" \
-            --source="${_PWD}"
-        else
-          echo "Unknown target: ${_TARGET}"
-          exit 1
-        fi
-    waitFor: ["Push"]
-
-images:
-  - "us-central1-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}"
+options:
+  logging: CLOUD_LOGGING_ONLY
