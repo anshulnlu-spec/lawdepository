@@ -1,28 +1,34 @@
-# This file tells Google Cloud Build how to deploy the AI researcher.
+# This file tells Google Cloud Build how to create the AI researcher as a background job.
 steps:
+# Step 1: Build the container image using the special researcher Dockerfile.
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/autonomous-researcher:${COMMIT_SHA}',
+    '-f', 'Dockerfile.researcher',
+    '.'
+  ]
+
+# Step 2: Push the container image to Artifact Registry.
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/legal-docs-repo/autonomous-researcher:${COMMIT_SHA}']
+
+# Step 3: Deploy to Cloud Run as a "Job" instead of a "Service".
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  entrypoint: 'gcloud'
+  entrypoint: gcloud
   args:
-  - 'functions'
-  - 'deploy'
-  - 'autonomous-researcher'
-  - '--gen2'
-  - '--runtime=python311'
-  - '--region=us-central1'
-  - '--source=.'
-  - '--entry-point=main'
-  - '--trigger-http'
-  - '--allow-unauthenticated'
-  - '--timeout=540s'
-  - '--run-service-account'
-  - '${_SERVICE_ACCOUNT}'
-  - '--ingress-settings'
-  - 'all'
+    - 'run'
+    - 'jobs'
+    - 'replace'
+    - 'cloudrun-job.yaml'
+    - '--region=us-central1'
 
-# Default values for our variables.
-substitutions:
-  _SERVICE_ACCOUNT: 'gen-lang-client-0486914658@appspot.gserviceaccount.com'
-
-# This section tells Cloud Build where to put the logs.
-options:
-  logging: CLOUD_LOGGING_ONLY
+# After deployment, this command will run the job once immediately for testing.
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'jobs'
+    - 'execute'
+    - 'autonomous-researcher-job'
+    - '--region=us-central1'
