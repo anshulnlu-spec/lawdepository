@@ -22,8 +22,6 @@ steps:
     - 'replace'
     - 'cloudrun-job.yaml'
     - '--region=us-central1'
-    # This final instruction allows the scheduler to trigger the job
-    - '--allow-unauthenticated'
 
 options:
   logging: CLOUD_LOGGING_ONLY
