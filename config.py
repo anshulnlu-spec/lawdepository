@@ -1,9 +1,8 @@
-# The central configuration for all legislation topics.
-# To add a new law to the website in the future, just add a new entry to this list.
-LEGISLATION_TOPICS = [
-    "Insolvency and Bankruptcy Law",
-    "Companies Act",
-    "Real Estate (Regulation and Development) Act, RERA",
-    "Competition Act"
-]
+# config.py - central place for feature flags and secrets fetch (from env)
+import os
 
+def get_env(name: str, default=None):
+    return os.getenv(name, default)
+
+def get_gemini_key():
+    return os.getenv("GEMINI_API_KEY")
