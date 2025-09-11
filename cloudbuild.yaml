@@ -7,6 +7,10 @@ substitutions:
   _TAG: "latest"
   _SERVICE: "legal-docs-service"
 
+# <= ADDED: ensure Cloud Build accepts builds that use a custom service account
+options:
+  logging: "CLOUD_LOGGING_ONLY"
+
 timeout: "1200s"
 
 steps:
