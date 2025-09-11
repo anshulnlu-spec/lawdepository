@@ -11,6 +11,10 @@ substitutions:
   _MEMORY: "512Mi"
   _TIMEOUT: "300s"
 
+# <= ADDED: ensure Cloud Build accepts builds that use a custom service account
+options:
+  logging: "CLOUD_LOGGING_ONLY"
+
 timeout: "1200s"
 
 steps:
