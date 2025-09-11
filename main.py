@@ -1,73 +1,47 @@
-import logging
-import sys
+# main.py - FastAPI app
+import os
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import JSONResponse, FileResponse # Import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles # Import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+import logging
+
 import database
-from config import LEGISLATION_TOPICS
+import autonomous_researcher
 
-# Configure logging
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("uvicorn.error")
 
-app = FastAPI(title="Global Law Depository API")
+app = FastAPI(title="Autonomous Researcher Service")
 
-# Mount the 'static' folder. This tells FastAPI to serve any file in the 'static' directory.
-# The path "/static" is the URL path where these files will be available.
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Allow all cross-origin requests
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
-)
+# mount static safely even when directory missing in dev
+app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
 
 @app.on_event("startup")
 def on_startup():
-    """Connect to the database when the application starts."""
-    database.connect_and_init_db()
+    # Initialize DB (raises if misconfigured)
+    try:
+        database.connect_and_init_db()
+    except Exception:
+        logger.exception("Database initialization failed during startup.")
+        # re-raise so container startup is visibly failing with trace
+        raise
 
-# This new endpoint will serve your index.html file when someone visits the root URL.
-@app.get("/")
-async def read_index():
-    """Serves the frontend's index.html file."""
-    return FileResponse('index.html')
-
-@app.get("/api/health")
-def health_check():
-    """A simple health check endpoint."""
+@app.get("/health", tags=["health"])
+def health():
     return {"status": "ok"}
 
-@app.get("/api/topics")
-def get_topics():
-    """Returns the list of legislation topics."""
-    return JSONResponse(content=LEGISLATION_TOPICS)
+@app.get("/", include_in_schema=False)
+def index():
+    index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return JSONResponse({"service": "autonomous-researcher", "status": "running"})
 
-@app.get("/api/documents/{topic}")
-def get_documents(topic: str, db: Session = Depends(database.get_db)):
-    """Fetches all documents for a specific topic from the database."""
-    from urllib.parse import unquote
-    decoded_topic = unquote(topic)
-    
+@app.post("/run", tags=["research"])
+def run_research(topic: str, db: Session = Depends(database.get_db)):
     try:
-        docs_query = db.query(database.Document).filter(database.Document.topic == decoded_topic).all()
-        
-        categorized_docs = {"India": {}, "United Kingdom": {}, "United States": {}}
-        for doc in docs_query:
-            country = doc.jurisdiction
-            category = doc.category
-            if category not in categorized_docs.get(country, {}):
-                categorized_docs[country][category] = []
-            
-            categorized_docs[country][category].append({
-                "title": doc.title, "date": doc.publication_date,
-                "summary": doc.summary, "url": doc.url,
-                "content_type": doc.content_type
-            })
-        
-        logging.info(f"Found {len(docs_query)} documents for topic '{decoded_topic}'.")
-        return JSONResponse(content=categorized_docs)
+        result = autonomous_researcher.run_autonomous_research_cycle(topic, db=db)
+        return {"status": "ok", "result": result}
     except Exception as e:
-        logging.error(f"Error fetching documents for topic '{topic}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to retrieve documents.")
+        logger.exception("Error running research cycle")
+        raise HTTPException(status_code=500, detail=str(e))
