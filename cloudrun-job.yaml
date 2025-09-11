@@ -1,0 +1,23 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: autonomous-researcher-job
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          containers:
+          - image: us-central1-docker.pkg.dev/gen-lang-client-0486914658/legal-docs-repo/autonomous-researcher
+            command: ["python", "autonomous_researcher.py"]
+            env:
+              - name: CLOUD_SQL_CONNECTION_NAME
+                value: 'gen-lang-client-0486914658:us-central1:legal-docs-db'
+              - name: GCP_PROJECT_ID
+                value: 'gen-lang-client-0486914658'
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 512Mi
+          serviceAccountName: gen-lang-client-0486914658@appspot.gserviceaccount.com
+          timeoutSeconds: 540 # 9 minutes
