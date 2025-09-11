@@ -20,4 +20,4 @@ spec:
                 cpu: 1000m
                 memory: 512Mi
           serviceAccountName: gen-lang-client-0486914658@appspot.gserviceaccount.com
-          timeoutSeconds: 540 # 9 minutes
+          timeoutSeconds: 540
