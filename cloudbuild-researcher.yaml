@@ -14,7 +14,6 @@ steps:
   - '--trigger-http'
   - '--allow-unauthenticated'
   - '--timeout=540s'
-  # This section gives the function the right permissions to access the database and secrets
   - '--run-service-account'
   - '${_SERVICE_ACCOUNT}'
   - '--ingress-settings'
