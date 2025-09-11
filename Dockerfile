@@ -1,31 +1,26 @@
-# Use an official slim Python runtime as a parent image
+# Dockerfile — minimal, reproducible, expands $PORT via entrypoint.sh
 FROM python:3.11-slim
 
-# Set environment variables to prevent Python from writing .pyc files and to buffer output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies required for psycopg2 (PostgreSQL driver) and other libraries
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    build-essential \
-    gcc \
-  && rm -rf /var/lib/apt/lists/*
+# Install system deps required for some Python packages (psycopg2, build tools)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential libpq-dev curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file first to leverage Docker's layer caching
+# Copy and install Python deps
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application source code into the container
+# Copy application code
 COPY . .
 
-# The command that will run inside the container to start the web server.
-# It uses the PORT environment variable provided by Cloud Run, defaulting to 8080.
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+# Ensure entrypoint script is executable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-
+# Use entrypoint that expands $PORT
+ENTRYPOINT ["/entrypoint.sh"]
