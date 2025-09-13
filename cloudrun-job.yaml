@@ -7,6 +7,7 @@ spec:
     spec:
       template:
         spec:
+  
           containers:
           - image: us-central1-docker.pkg.dev/gen-lang-client-0486914658/legal-docs-repo/autonomous-researcher
             command: ["python", "autonomous_researcher.py"]
@@ -15,6 +16,9 @@ spec:
                 value: 'gen-lang-client-0486914658:us-central1:legal-docs-db'
               - name: GCP_PROJECT_ID
                 value: 'gen-lang-client-0486914658'
+              # This new env var tells the researcher which secret to look for
+              - name: GEMINI_SECRET_NAME
+                value: 'gemini-api-key'
             resources:
               limits:
                 cpu: 1000m
