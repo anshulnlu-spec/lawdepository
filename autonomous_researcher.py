@@ -10,7 +10,6 @@ import analysis
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- The AI's Mission ---
-# This is the "control panel" for the AI's daily tasks.
 RESEARCH_MISSIONS = [
     "Insolvency and Bankruptcy Law in India",
     "The Companies Act in India",
@@ -60,32 +59,24 @@ def run_autonomous_research_cycle():
                 logging.warning("Could not find sources for this mission. Skipping.")
                 continue
 
-            for source_url in source_urls:
-                discovered_links = analysis.scrape_links_from_url(source_url)
-                new_links = [link for link in discovered_links if link not in existing_urls]
-                
-                if not new_links:
-                    logging.info(f"  No new documents found at {source_url}")
-                    continue
-                
-                logging.info(f"  Found {len(new_links)} new documents to analyze from {source_url}...")
-
-                for link in new_links:
-                    is_valid, content_type = analysis.validate_link(link)
+            for source_url in analysis.scrape_links_from_url(source_url):
+                if source_url not in existing_urls:
+                    logging.info(f"    -> Analyzing new link: {source_url}")
+                    is_valid, content_type = analysis.validate_link(source_url)
                     if is_valid:
-                        details = analysis.analyze_document_content(link, "India", mission_topic, content_type)
+                        details = analysis.analyze_document_content(source_url, "India", mission_topic, content_type)
                         
                         if details and details.get("is_relevant"):
                             logging.info(f"      SUCCESS: AI confirmed document is relevant. Title: '{details.get('title')}'")
                             db_doc = database.Document(
-                                url=link, title=details.get("title", "Title not available"),
+                                url=source_url, title=details.get("title", "Title not available"),
                                 publication_date=details.get("date"), summary=details.get("summary"),
                                 category=details.get("category", "Uncategorized"), jurisdiction="India",
                                 content_type=content_type, topic=mission_topic
                             )
                             db.add(db_doc)
                             db.commit()
-                            existing_urls.add(link)
+                            existing_urls.add(source_url)
     except Exception as e:
         logging.critical(f"FATAL ERROR during autonomous research cycle: {e}", exc_info=True)
         db.rollback()
@@ -93,9 +84,8 @@ def run_autonomous_research_cycle():
         db.close()
         logging.info("--- Autonomous AI research cycle finished ---")
 
-def main(event, context):
-    """Entry point for Google Cloud Functions."""
-    run_autonomous_research_cycle()
-
+# --- This is the corrected section ---
+# This tells the script: "if you are run directly, then start the research cycle."
+# It removes the need for a special Cloud Function signal.
 if __name__ == "__main__":
     run_autonomous_research_cycle()
