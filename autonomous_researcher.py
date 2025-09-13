@@ -43,17 +43,22 @@ def run_autonomous_research_cycle():
     """The main function for the autonomous AI researcher."""
     logging.info("--- Starting new AUTONOMOUS AI research cycle ---")
     
+    # Initialize the database connection once
     database.connect_and_init_db()
+    
+    # Get all existing URLs once to avoid re-checking
     db = next(database.get_db())
+    existing_urls_query = db.query(database.Document.url).all()
+    existing_urls = {url for (url,) in existing_urls_query}
+    db.close()
+    logging.info(f"Found {len(existing_urls)} documents already in the database.")
 
-    try:
-        existing_urls_query = db.query(database.Document.url).all()
-        existing_urls = {url for (url,) in existing_urls_query}
-        logging.info(f"Found {len(existing_urls)} documents already in the database.")
-
-        for mission_topic in RESEARCH_MISSIONS:
-            logging.info(f"--- Starting mission: {mission_topic} ---")
-            
+    # --- THIS IS THE CORRECTED LOGIC ---
+    # Get a new, fresh database session for each mission
+    for mission_topic in RESEARCH_MISSIONS:
+        logging.info(f"--- Starting mission: {mission_topic} ---")
+        db = next(database.get_db())
+        try:
             source_urls = find_authoritative_sources(mission_topic)
             if not source_urls:
                 logging.warning("Could not find sources for this mission. Skipping.")
@@ -76,16 +81,15 @@ def run_autonomous_research_cycle():
                             )
                             db.add(db_doc)
                             db.commit()
-                            existing_urls.add(source_url)
-    except Exception as e:
-        logging.critical(f"FATAL ERROR during autonomous research cycle: {e}", exc_info=True)
-        db.rollback()
-    finally:
-        db.close()
-        logging.info("--- Autonomous AI research cycle finished ---")
+                            existing_urls.add(source_url) # Add to our in-memory set
+        except Exception as e:
+            logging.critical(f"FATAL ERROR during mission '{mission_topic}': {e}", exc_info=True)
+            db.rollback()
+        finally:
+            db.close() # Close the session for this mission
+            logging.info(f"--- Finished mission: {mission_topic} ---")
 
-# --- This is the corrected section ---
-# This tells the script: "if you are run directly, then start the research cycle."
-# It removes the need for a special Cloud Function signal.
+    logging.info("--- Autonomous AI research cycle finished ---")
+
 if __name__ == "__main__":
     run_autonomous_research_cycle()
